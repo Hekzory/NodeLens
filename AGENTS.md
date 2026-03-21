@@ -8,11 +8,20 @@
 
 ## Current status
 
-This repository is currently a **scaffold / structure-first project**.
+This repository is currently a **first-iteration partially implemented project**.
 
 Important:
-- Many files may exist but be empty.
+- Many files may still exist but be empty.
 - File presence does **not** imply implementation exists.
+- A minimal runnable slice **does exist now**:
+  - PostgreSQL + TimescaleDB
+  - Redis Streams
+  - Ingestor
+- `docker-compose.yml` currently starts only those 3 services.
+- The ingestor currently also runs a **temporary fake publisher** for test telemetry so the Redis → Ingestor → DB pipeline can be verified before plugins are implemented.
+- Metadata required for ingestion (`plugins`, `devices`, `sensors`) is currently created by `scripts/seed_db.py`, **not** by the ingestor.
+- Python target is **3.13**.
+- Python dependencies are managed with **uv** from `backend/pyproject.toml`.
 - If a behavior is not described here as fixed, do not assume it is implemented.
 - Prefer explicit placeholders over invented details.
 
@@ -89,18 +98,34 @@ There are **8 containers**:
 
 These roles are fixed even if some services share a codebase.
 
+Current implementation note:
+- The 8-container layout remains the target architecture and should still be treated as fixed.
+- However, the **currently implemented runtime subset** is only:
+  1. PostgreSQL + TimescaleDB
+  2. Redis Streams
+  3. Ingestor
+- Frontend, web backend, MQTT broker usage, alert processor, and plugins worker are not yet active runtime components in the current iteration.
+
 ---
 
 ## Core design intent
 
 ### Stack
-- Backend/workers: Python
+- Backend/workers: Python 3.13
+- Dependency management: uv + `backend/pyproject.toml`
 - Web API: FastAPI
 - Database: PostgreSQL + TimescaleDB extension
 - Event bus: Redis Streams
 - MQTT: Mosquitto
 - Frontend: React + TypeScript
 - Deployment: Docker Compose
+
+Current core Python deps for the implemented part:
+- `sqlalchemy[asyncio] >= 2.0.48`
+- `asyncpg >= 0.31.0`
+- `redis >= 7.3.0`
+- `pydantic == 2.12.5`
+- `pydantic-settings == 2.13.1`
 
 ### Architectural principles
 - keep components loosely coupled
@@ -135,6 +160,26 @@ These roles are fixed even if some services share a codebase.
 3. Frontend polls periodically
 4. No WebSocket requirement is planned at this stage
 
+### Currently implemented first iteration
+1. `scripts/seed_db.py` creates demo rows in:
+   - `plugins`
+   - `devices`
+   - `sensors`
+2. The temporary fake publisher publishes synthetic telemetry into Redis stream `telemetry_events`
+3. Ingestor consumes that stream through consumer group `ingest_group`
+4. Ingestor parses and validates each event
+5. Ingestor checks that:
+   - `device_id` is a valid UUID
+   - `sensor_id` is a valid UUID
+   - `sensor_id` exists
+   - the sensor belongs to the given device
+6. Ingestor writes accepted rows into the `telemetry` hypertable
+
+Important current semantics:
+- `TelemetryEvent.device_id` is a stringified internal UUID from `devices.id`
+- `TelemetryEvent.sensor_id` is a stringified internal UUID from `sensors.id`
+- these are **not** external IDs in the current iteration
+
 ---
 
 ## Hard boundaries between components
@@ -161,6 +206,9 @@ These are intentional and should not be casually broken.
 - reads telemetry events from Redis
 - writes telemetry into TimescaleDB
 - should remain focused on durable ingestion
+- should validate event references before insert
+- should **not** create plugins, devices, or sensors based on telemetry events
+- metadata/bootstrap logic belongs to setup/seed scripts or future dedicated flows, not to the ingestor
 
 ### Alert processor
 - reads telemetry events from Redis
@@ -230,14 +278,20 @@ Deployment artifacts:
 - config for Postgres, Redis, Mosquitto
 
 ### `/backend`
-Shared Python codebase:
+Shared Python codebase.
+
+Currently implemented parts:
+- `nodelens/config.py` → settings
+- `nodelens/constants.py` → stream/group constants
+- `nodelens/db` → SQLAlchemy base, async session, models
+- `nodelens/redis` → Redis client + stream helpers
+- `nodelens/schemas/events.py` → current telemetry contract
+- `nodelens/workers/ingestor` → current runnable worker
+
+Planned but not implemented yet:
 - `nodelens/api` → FastAPI service
-- `nodelens/workers/ingestor` → ingest worker
 - `nodelens/workers/alerts` → alert worker
 - `nodelens/workers/plugin_runner` → plugin supervisor/runner
-- `nodelens/db` → DB layer
-- `nodelens/redis` → Redis helpers
-- `nodelens/schemas` → API/internal contracts
 - `nodelens/sdk` → plugin SDK
 - `alembic/` → migrations
 
@@ -257,7 +311,14 @@ React + TypeScript application:
 - nginx-based runtime image
 
 ### `/scripts`
-Utility scripts for setup/seed/health
+Utility scripts for setup/seed/health.
+
+Currently implemented:
+- `init_db.py`
+- `seed_db.py`
+
+Other script behavior:
+- [this part is not currently implemented, will be replaced with details of internals later]
 
 ### `/tests`
 Unit/API/integration test placeholders
@@ -285,37 +346,100 @@ Exact routes and payloads:
 ### `backend/nodelens/db`
 Database access and models.
 
-Expected concerns:
-- SQLAlchemy models
-- sessions/engines
-- telemetry storage model
-- app metadata model
+Current implemented schema subset:
 
-Exact schema:
+- `plugins`
+  - `id: UUID` (PK)
+  - `plugin_type: VARCHAR`
+  - `module_name: VARCHAR` (unique)
+  - `display_name: VARCHAR`
+  - `version: VARCHAR`
+  - `is_active: BOOLEAN`
+  - `created_at: TIMESTAMPTZ`
+
+- `devices`
+  - `id: UUID` (PK)
+  - `plugin_id: UUID` (FK → `plugins.id`)
+  - `external_id: VARCHAR`
+  - `name: VARCHAR`
+  - `location: VARCHAR | NULL`
+  - `is_online: BOOLEAN`
+  - `last_seen: TIMESTAMPTZ | NULL`
+  - `created_at: TIMESTAMPTZ`
+
+- `sensors`
+  - `id: UUID` (PK)
+  - `device_id: UUID` (FK → `devices.id`)
+  - `key: VARCHAR`
+  - `name: VARCHAR`
+  - `unit: VARCHAR | NULL`
+  - `value_type: VARCHAR`
+  - `created_at: TIMESTAMPTZ`
+
+- `telemetry`
+  - `time: TIMESTAMPTZ`
+  - `sensor_id: UUID` (FK → `sensors.id`)
+  - `value_numeric: DOUBLE PRECISION | NULL`
+  - `value_text: VARCHAR | NULL`
+  - primary key: (`time`, `sensor_id`)
+
+Current Timescale behavior:
+- `telemetry` is converted into a hypertable partitioned by `time`
+
+Full future application schema beyond this subset:
 - [this part is not currently implemented, will be replaced with details of internals later]
 
 ### `backend/nodelens/redis`
 Redis connection and stream helpers.
 
-Expected concerns:
-- stream read/write helpers
-- consumer-group handling
-- event serialization support
+Current implemented stream structure:
+- stream name: `telemetry_events`
+- consumer group: `ingest_group`
+- consumer name: `ingestor-1`
 
-Exact stream structure:
+Current serialized event fields in Redis:
+- `device_id`
+- `sensor_id`
+- `value`
+- `timestamp`
+
+Implemented concerns:
+- Redis connection helper
+- stream publish helper
+- consumer-group creation helper
+- stream read helper
+- ack helper
+
+Other stream contracts:
 - [this part is not currently implemented, will be replaced with details of internals later]
 
 ### `backend/nodelens/schemas`
 Shared Pydantic/data contracts.
 
-Expected concerns:
-- API request/response schemas
-- telemetry event contract
-- plugin config schemas
-- alert schemas
+Current implemented schema definition:
 
-Exact schema definitions:
+```python
+@dataclass(frozen=True, slots=True)
+class TelemetryEvent:
+    device_id: str
+    sensor_id: str
+    value: float
+    timestamp: datetime
+```
+
+Current semantics:
+
+- device_id = stringified devices.id
+- sensor_id = stringified sensors.id
+
+Currently implemented concerns:
+
+- telemetry event contract for Redis publisher/consumer pipeline
+
+Other API / plugin / alert schemas:
+
 - [this part is not currently implemented, will be replaced with details of internals later]
+
 
 ### `backend/nodelens/sdk`
 Plugin authoring surface.
@@ -382,7 +506,33 @@ Primary deployment model:
 
 This project is intentionally designed to avoid requiring the author to host a public service.
 
-Exact compose service definitions and env vars:
+Current compose/runtime definitions:
+- `docker-compose.yml` currently runs:
+  - `postgres`
+  - `redis`
+  - `ingestor`
+
+Current relevant env vars:
+- `POSTGRES_USER`
+- `POSTGRES_PASSWORD`
+- `POSTGRES_DB`
+- `DATABASE_URL`
+- `REDIS_URL`
+- `LOG_LEVEL`
+
+Current useful commands:
+- `make up`
+- `make bootstrap`
+- `make seed`
+- `make init-db`
+- `make logs-ingestor`
+- `make query-devices`
+- `make query-sensors`
+- `make query-seed`
+- `make query-telemetry`
+- `make redis-stream`
+
+Future full 8-service compose layout:
 - [this part is not currently implemented, will be replaced with details of internals later]
 
 ---
@@ -391,8 +541,8 @@ Exact compose service definitions and env vars:
 
 Do not assume any of the following already exist unless they are explicitly implemented in code:
 - authentication system
-- finalized database schema
-- finalized Redis event schema
+- finalized full application database schema beyond the currently implemented ingestion subset
+- finalized Redis/event contracts beyond the currently implemented telemetry ingestion contract
 - finished API routes
 - plugin hot-reloading
 - plugin security sandboxing
@@ -433,7 +583,12 @@ NodeLens is a Docker Compose-deployed, self-hosted IoT telemetry monitoring syst
 - plugin-based device ingestion and alert integrations
 - separate ingestor / alert / plugin worker services
 
-Most of the repository is currently structure only.
+Current implemented slice:
+- PostgreSQL + TimescaleDB
+- Redis Streams
+- ingestor worker
+- seed/init scripts
+- temporary fake publisher for telemetry generation
 
 Anything not explicitly fixed above should be treated as:
 
