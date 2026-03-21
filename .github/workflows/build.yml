@@ -17,6 +17,15 @@ jobs:
           - name: ingestor
             dockerfile: deploy/ingestor.Dockerfile
             context: .
+          - name: alerts
+            dockerfile: deploy/alerts.Dockerfile
+            context: .
+          - name: plugins-worker
+            dockerfile: deploy/plugins-worker.Dockerfile
+            context: .
+          - name: api
+            dockerfile: deploy/api.Dockerfile
+            context: .
 
     steps:
       - uses: actions/checkout@v6
