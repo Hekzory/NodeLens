@@ -1,0 +1,11 @@
+FROM python:3.13-slim
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
+
+WORKDIR /app
+
+COPY backend/ .
+COPY scripts/ ./scripts/
+
+RUN uv pip install --system --no-cache .
+
+CMD ["python", "-m", "nodelens.workers.ingestor"]

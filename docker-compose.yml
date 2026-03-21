@@ -1,0 +1,65 @@
+services:
+
+  postgres:
+    image: timescale/timescaledb:latest-pg17
+    environment:
+      POSTGRES_USER: nodelens
+      POSTGRES_PASSWORD: nodelens
+      POSTGRES_DB: nodelens
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./deploy/postgres/init.sql:/docker-entrypoint-initdb.d/001-init.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nodelens -d nodelens"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:8.6-alpine
+    volumes:
+      - ./deploy/redis/redis.conf:/usr/local/etc/redis/redis.conf
+    command: redis-server /usr/local/etc/redis/redis.conf
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  ingestor:
+    build:
+      context: .
+      dockerfile: deploy/ingestor.Dockerfile
+    environment:
+      DATABASE_URL: "postgresql+asyncpg://nodelens:nodelens@postgres:5432/nodelens"
+      REDIS_URL: "redis://redis:6379/0"
+      LOG_LEVEL: "INFO"
+      ENABLE_FAKE_PUBLISHER: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  seed:
+    build:
+      context: .
+      dockerfile: deploy/ingestor.Dockerfile
+    command: ["python", "scripts/seed_demo.py"]
+    environment:
+      DATABASE_URL: "postgresql+asyncpg://nodelens:nodelens@postgres:5432/nodelens"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles: ["seed"]
+    restart: "no"
+
+volumes:
+  pgdata:
