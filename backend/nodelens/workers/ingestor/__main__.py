@@ -4,8 +4,8 @@ Ingestor entry-point.
     python -m nodelens.workers.ingestor
 
 1. Ensures DB tables + hypertable exist (idempotent DDL only — no seed data).
-2. Launches the Redis → Postgres consumer loop.
-3. Optionally launches a fake publisher (controlled by ENABLE_FAKE_PUBLISHER env).
+2. Launches the Redis → Postgres telemetry consumer loop.
+3. Launches the registration-event consumer loop.
 """
 
 import asyncio
@@ -28,14 +28,9 @@ async def main() -> None:
     logger.info("Database schema ready (tables + hypertable).")
 
     from nodelens.workers.ingestor.consumer import run_consumer
+    from nodelens.workers.ingestor.registration import run_registration_consumer
 
-    tasks: list[asyncio.coroutine] = [run_consumer()]
-
-    if settings.ENABLE_FAKE_PUBLISHER:
-        from nodelens.workers.ingestor.fake_publisher import run_fake_publisher
-
-        tasks.append(run_fake_publisher())
-        logger.info("Fake publisher enabled.")
+    tasks = [run_consumer(), run_registration_consumer()]
 
     logger.info("Starting ingestor (%d tasks) …", len(tasks))
     try:

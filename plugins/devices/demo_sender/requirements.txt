@@ -1,0 +1,1 @@
+# No extra dependencies — the demo plugin uses only the nodelens SDK.

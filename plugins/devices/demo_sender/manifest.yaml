@@ -1,0 +1,10 @@
+id: "10000000-0000-0000-0000-000000000001"
+name: demo_sender
+display_name: "Demo Sender"
+version: "0.1.0"
+type: device
+entry_point: "plugin:DemoSenderPlugin"
+description: >
+  Built-in demo plugin that generates synthetic telemetry for three
+  virtual devices.  Useful for verifying the ingest pipeline without
+  real hardware.

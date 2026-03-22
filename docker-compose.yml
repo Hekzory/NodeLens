@@ -40,12 +40,26 @@ services:
       DATABASE_URL: "postgresql+asyncpg://nodelens:nodelens@postgres:5432/nodelens"
       REDIS_URL: "redis://redis:6379/0"
       LOG_LEVEL: "INFO"
-      ENABLE_FAKE_PUBLISHER: "true"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+    restart: unless-stopped
+
+  plugins:
+    build:
+      context: .
+      dockerfile: deploy/plugins.Dockerfile
+    environment:
+      REDIS_URL: "redis://redis:6379/0"
+      LOG_LEVEL: "INFO"
+      PLUGINS_DIR: "plugins"
+    depends_on:
+      redis:
+        condition: service_healthy
+      ingestor:
+        condition: service_started
     restart: unless-stopped
 
   seed:

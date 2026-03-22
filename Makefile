@@ -1,4 +1,4 @@
-.PHONY: up down down-v logs logs-ingestor ps restart seed
+.PHONY: up down down-v logs logs-ingestor logs-plugins ps restart seed
 
 up:
 	docker compose up -d --build
@@ -15,11 +15,14 @@ logs:
 logs-ingestor:
 	docker compose logs -f ingestor
 
+logs-plugins:
+	docker compose logs -f plugins
+
 ps:
 	docker compose ps
 
 restart:
-	docker compose restart ingestor
+	docker compose restart ingestor plugins
 
 seed:
 	docker compose run --rm seed
@@ -41,5 +44,12 @@ query-sensors:
 		-c "SELECT s.id, s.key, s.unit, d.name AS device \
 		    FROM sensors s JOIN devices d ON d.id = s.device_id;"
 
+query-plugins:
+	docker compose exec postgres psql -U nodelens -d nodelens \
+		-c "SELECT id, module_name, display_name, version, is_active FROM plugins;"
+
 redis-stream:
 	docker compose exec redis redis-cli XLEN telemetry_events
+
+redis-registration:
+	docker compose exec redis redis-cli XLEN registration_events
