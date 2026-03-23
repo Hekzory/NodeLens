@@ -17,9 +17,9 @@ Important:
   - PostgreSQL + TimescaleDB
   - Redis Streams
   - Ingestor
-- `docker-compose.yml` currently starts only those 3 services.
-- The ingestor currently also runs a **temporary fake publisher** for test telemetry so the Redis → Ingestor → DB pipeline can be verified before plugins are implemented.
-- Metadata required for ingestion (`plugins`, `devices`, `sensors`) is currently created by `scripts/seed_db.py`, **not** by the ingestor.
+  - Plugins worker (with a built-in demo_sender device plugin)
+- `docker-compose.yml` currently starts 4 services: `postgres`, `redis`, `ingestor`, `plugins`.
+- Metadata required for ingestion (`plugins`, `devices`, `sensors`) is registered at runtime by plugins themselves via the `registration_events` Redis stream. The ingestor consumes that stream and upserts rows into the DB. Registration is idempotent — plugins re-register on every restart.
 - Python target is **3.13**.
 - Python dependencies are managed with **uv** from `backend/pyproject.toml`.
 - If a behavior is not described here as fixed, do not assume it is implemented.
@@ -100,11 +100,12 @@ These roles are fixed even if some services share a codebase.
 
 Current implementation note:
 - The 8-container layout remains the target architecture and should still be treated as fixed.
-- However, the **currently implemented runtime subset** is only:
+- The **currently implemented runtime subset** is:
   1. PostgreSQL + TimescaleDB
   2. Redis Streams
   3. Ingestor
-- Frontend, web backend, MQTT broker usage, alert processor, and plugins worker are not yet active runtime components in the current iteration.
+  4. Plugins worker
+- Frontend, web backend, MQTT broker usage, and alert processor are not yet active runtime components in the current iteration.
 
 ---
 
@@ -124,8 +125,9 @@ Current core Python deps for the implemented part:
 - `sqlalchemy[asyncio] >= 2.0.48`
 - `asyncpg >= 0.31.0`
 - `redis >= 7.3.0`
-- `pydantic == 2.12.5`
-- `pydantic-settings == 2.13.1`
+- `pydantic >= 2.12.5`
+- `pydantic-settings >= 2.13.1`
+- `ruamel.yaml == 0.19.1`
 
 ### Architectural principles
 - keep components loosely coupled
@@ -158,27 +160,25 @@ Current core Python deps for the implemented part:
 1. Frontend requests dashboard/telemetry data from backend
 2. Backend queries PostgreSQL/TimescaleDB
 3. Frontend polls periodically
-4. No WebSocket requirement is planned at this stage
+4. No WebSocket requirement is planned
 
-### Currently implemented first iteration
-1. `scripts/seed_db.py` creates demo rows in:
-   - `plugins`
-   - `devices`
-   - `sensors`
-2. The temporary fake publisher publishes synthetic telemetry into Redis stream `telemetry_events`
-3. Ingestor consumes that stream through consumer group `ingest_group`
-4. Ingestor parses and validates each event
-5. Ingestor checks that:
-   - `device_id` is a valid UUID
-   - `sensor_id` is a valid UUID
-   - `sensor_id` exists
-   - the sensor belongs to the given device
-6. Ingestor writes accepted rows into the `telemetry` hypertable
-
-Important current semantics:
-- `TelemetryEvent.device_id` is a stringified internal UUID from `devices.id`
-- `TelemetryEvent.sensor_id` is a stringified internal UUID from `sensors.id`
-- these are **not** external IDs in the current iteration
+### Currently implemented data flow
+1. **Plugin registration (on plugin startup):**
+   - Each plugin publishes `register_plugin`, `register_device`, and `register_sensor` events to the `registration_events` Redis stream.
+   - Ingestor consumes this stream and upserts plugin/device/sensor rows into the DB.
+   - Registration is idempotent — safe to repeat across restarts.
+2. **Telemetry publishing:**
+   - The demo_sender plugin (running inside the plugins worker container) publishes synthetic telemetry into Redis stream `telemetry_events`.
+3. **Telemetry ingestion:**
+   - Ingestor consumes `telemetry_events` through consumer group `ingest_group`.
+   - Ingestor parses and validates each event:
+     - `device_id` and `sensor_id` are valid UUIDs
+     - `sensor_id` exists in the `sensors` table
+     - `sensor_id` belongs to the given `device_id`
+     - `device_id` exists and has a registered plugin (enforced by FK)
+   - Accepted rows are written into the `telemetry` hypertable.
+   - `devices.last_seen` is updated to the latest event timestamp for each affected device.
+   - Events that fail validation are logged and skipped (not written).
 
 ---
 
@@ -203,12 +203,14 @@ These are intentional and should not be casually broken.
 - should **not** write directly to Postgres telemetry tables
 
 ### Ingestor
-- reads telemetry events from Redis
-- writes telemetry into TimescaleDB
-- should remain focused on durable ingestion
-- should validate event references before insert
-- should **not** create plugins, devices, or sensors based on telemetry events
-- metadata/bootstrap logic belongs to setup/seed scripts or future dedicated flows, not to the ingestor
+- reads telemetry events from Redis stream `telemetry_events`
+- reads registration events from Redis stream `registration_events`
+- writes telemetry into TimescaleDB after validation
+- upserts plugin/device/sensor metadata from registration events
+- validates that sensor_id exists, belongs to the given device_id, and the device has a registered plugin
+- updates `devices.last_seen` on successful telemetry write
+- should remain focused on durable ingestion and registration
+- should **not** create plugins, devices, or sensors from telemetry events (only from explicit registration events)
 
 ### Alert processor
 - reads telemetry events from Redis
@@ -233,8 +235,10 @@ Purpose:
 - discover devices if applicable
 - receive or poll telemetry
 - normalize and publish telemetry events
+- register themselves, their devices, and sensors via the registration stream
 
 Examples:
+- demo_sender (built-in, generates synthetic telemetry)
 - MQTT plugin
 - HTTP poller plugin
 - [future examples not currently implemented]
@@ -244,23 +248,62 @@ Purpose:
 - provide alert outputs / destinations
 
 Examples:
-- Telegram
-- Email/SMTP
-- [future examples not currently implemented]
+- [not implemented]
 
 ### Plugin placement
-- user-facing plugin folders live under root `plugins/`
+- user-facing plugin folders live under root `plugins/devices/` and `plugins/integrations/`
 - shared Python SDK / interfaces live under `backend/nodelens/sdk/`
 
+### Plugin SDK (`backend/nodelens/sdk/`)
+
+Implemented classes:
+- `BasePlugin` — abstract base with `configure()`, `start()`, `stop()` lifecycle methods
+- `DevicePlugin(BasePlugin)` — adds abstract `on_message(raw_data: bytes) -> list[TelemetryEvent]`
+- `IntegrationPlugin(BasePlugin)` — adds abstract `send(channel_config, message: AlertMessage) -> bool`
+- `PluginContext` — injected runtime context providing:
+  - `register_plugin()`, `register_device()`, `register_sensor()` — publish to `registration_events` stream
+  - `publish_telemetry(event)` — publish to `telemetry_events` stream
+  - Redis connection lifecycle (`connect()` / `close()`)
+- `PluginError`, `PluginConfigError` — exception hierarchy
+
+### Plugin manifest
+
+Each plugin directory must contain a `manifest.yaml` with these required fields:
+
+```yaml
+id: "<UUID>"              # deterministic, unique per plugin
+name: "<module_name>"     # unique identifier string
+display_name: "<human-readable name>"
+version: "<semver>"
+type: "device"            # or "integration"
+entry_point: "module:ClassName"  # e.g. "plugin:DemoSenderPlugin"
+```
+
+Optional field: `description`.
+
+Devices and sensors are **not** declared in the manifest — plugins register them dynamically at runtime via the registration stream.
+
+### Plugin lifecycle
+1. Plugin runner supervisor discovers plugins under `PLUGINS_DIR` by scanning for `manifest.yaml` files.
+2. Each valid plugin is launched as a **separate subprocess** via `run_single.py`.
+3. The subprocess loads the manifest, imports the plugin class, creates a `PluginContext`, and calls:
+   - `plugin.configure({})` — one-time setup
+   - `plugin.start()` — main loop (runs until cancelled)
+   - `plugin.stop()` — graceful shutdown on exit
+4. If a plugin subprocess exits, the supervisor restarts it after a short delay.
+
+### Plugin registration flow
+1. On startup, a plugin calls `ctx.register_plugin()`, `ctx.register_device(...)`, `ctx.register_sensor(...)`.
+2. These publish structured events to the `registration_events` Redis stream.
+3. The ingestor's registration consumer reads and upserts them into Postgres.
+4. Registration is idempotent — plugins re-register on every restart.
+5. After a short settle delay, the plugin begins publishing telemetry.
+6. If telemetry arrives before registration is processed, events are skipped by the ingestor (not an error — self-healing on next restart).
+
 ### Plugin expectations
-- plugins should have explicit metadata/manifest
-- plugin configuration should be manageable through the web backend/UI
-- runtime lifecycle should be supervised by the plugins worker
+- plugin configuration should be manageable through the web backend/UI (not yet implemented)
 
-Exact manifest shape:
-- [this part is not currently implemented, will be replaced with details of internals later]
-
-Exact plugin lifecycle and hot-reload behavior:
+Exact plugin hot-reload behavior:
 - [this part is not currently implemented, will be replaced with details of internals later]
 
 Exact integration plugin invocation path:
@@ -281,18 +324,18 @@ Deployment artifacts:
 Shared Python codebase.
 
 Currently implemented parts:
-- `nodelens/config.py` → settings
-- `nodelens/constants.py` → stream/group constants
-- `nodelens/db` → SQLAlchemy base, async session, models
+- `nodelens/config.py` → settings (`DATABASE_URL`, `REDIS_URL`, `LOG_LEVEL`, `PLUGINS_DIR`)
+- `nodelens/constants.py` → stream/group constants for both `telemetry_events` and `registration_events`
+- `nodelens/db` → SQLAlchemy base, async session, models (Plugin, Device, Sensor, TelemetryRecord)
 - `nodelens/redis` → Redis client + stream helpers
-- `nodelens/schemas/events.py` → current telemetry contract
-- `nodelens/workers/ingestor` → current runnable worker
+- `nodelens/schemas/events.py` → TelemetryEvent, AlertMessage, RegisterPluginEvent, RegisterDeviceEvent, RegisterSensorEvent
+- `nodelens/sdk` → plugin SDK (BasePlugin, DevicePlugin, IntegrationPlugin, PluginContext, exceptions)
+- `nodelens/workers/ingestor` → telemetry consumer, registration consumer, writer with validation
+- `nodelens/workers/plugin_runner` → plugin supervisor, loader, single-plugin subprocess runner
 
 Planned but not implemented yet:
 - `nodelens/api` → FastAPI service
 - `nodelens/workers/alerts` → alert worker
-- `nodelens/workers/plugin_runner` → plugin supervisor/runner
-- `nodelens/sdk` → plugin SDK
 - `alembic/` → migrations
 
 ### `/plugins`
@@ -316,9 +359,6 @@ Utility scripts for setup/seed/health.
 Currently implemented:
 - `init_db.py`
 - `seed_db.py`
-
-Other script behavior:
-- [this part is not currently implemented, will be replaced with details of internals later]
 
 ### `/tests`
 Unit/API/integration test placeholders
@@ -392,16 +432,20 @@ Full future application schema beyond this subset:
 ### `backend/nodelens/redis`
 Redis connection and stream helpers.
 
-Current implemented stream structure:
+Current implemented stream structures:
+
+**Telemetry stream:**
 - stream name: `telemetry_events`
 - consumer group: `ingest_group`
 - consumer name: `ingestor-1`
+- serialized fields: `device_id`, `sensor_id`, `value`, `timestamp`
 
-Current serialized event fields in Redis:
-- `device_id`
-- `sensor_id`
-- `value`
-- `timestamp`
+**Registration stream:**
+- stream name: `registration_events`
+- consumer group: `registration_group`
+- consumer name: `registrar-1`
+- event types: `register_plugin`, `register_device`, `register_sensor`
+- each event includes an `event_type` field plus type-specific fields matching the corresponding dataclass
 
 Implemented concerns:
 - Redis connection helper
@@ -414,9 +458,9 @@ Other stream contracts:
 - [this part is not currently implemented, will be replaced with details of internals later]
 
 ### `backend/nodelens/schemas`
-Shared Pydantic/data contracts.
+Shared data contracts (dataclasses).
 
-Current implemented schema definition:
+Current implemented definitions:
 
 ```python
 @dataclass(frozen=True, slots=True)
@@ -425,33 +469,60 @@ class TelemetryEvent:
     sensor_id: str
     value: float
     timestamp: datetime
+
+@dataclass(frozen=True, slots=True)
+class AlertMessage:
+    rule_name: str
+    device_name: str
+    triggered_value: float
+    message: str
+    triggered_at: datetime
+
+@dataclass(frozen=True, slots=True)
+class RegisterPluginEvent:
+    plugin_id: str
+    plugin_type: str
+    module_name: str
+    display_name: str
+    version: str
+
+@dataclass(frozen=True, slots=True)
+class RegisterDeviceEvent:
+    device_id: str
+    plugin_id: str
+    external_id: str
+    name: str
+    location: str = ""
+
+@dataclass(frozen=True, slots=True)
+class RegisterSensorEvent:
+    sensor_id: str
+    device_id: str
+    key: str
+    name: str
+    unit: str = ""
+    value_type: str = "numeric"
 ```
 
 Current semantics:
-
-- device_id = stringified devices.id
-- sensor_id = stringified sensors.id
-
-Currently implemented concerns:
-
-- telemetry event contract for Redis publisher/consumer pipeline
+- device_id = stringified `devices.id`
+- sensor_id = stringified `sensors.id`
+- plugin_id = stringified `plugins.id`
 
 Other API / plugin / alert schemas:
-
 - [this part is not currently implemented, will be replaced with details of internals later]
 
 
 ### `backend/nodelens/sdk`
 Plugin authoring surface.
 
-Expected concerns:
-- device plugin base interface
-- integration plugin base interface
-- plugin context object
-- common exceptions/events
-
-Exact SDK interface:
-- [this part is not currently implemented, will be replaced with details of internals later]
+Implemented concerns:
+- `BasePlugin` — abstract base class with `configure()`, `start()`, `stop()` lifecycle
+- `DevicePlugin` — extends BasePlugin with `on_message(raw_data) -> list[TelemetryEvent]`
+- `IntegrationPlugin` — extends BasePlugin with `send(channel_config, message) -> bool`
+- `PluginContext` — runtime context with registration helpers and telemetry publishing
+- `PluginError`, `PluginConfigError` — exception classes
+- re-exports of `TelemetryEvent`, `AlertMessage`, registration event dataclasses
 
 ---
 
@@ -511,6 +582,7 @@ Current compose/runtime definitions:
   - `postgres`
   - `redis`
   - `ingestor`
+  - `plugins`
 
 Current relevant env vars:
 - `POSTGRES_USER`
@@ -519,18 +591,21 @@ Current relevant env vars:
 - `DATABASE_URL`
 - `REDIS_URL`
 - `LOG_LEVEL`
+- `PLUGINS_DIR`
 
 Current useful commands:
 - `make up`
-- `make bootstrap`
+- `make down` / `make down-v`
 - `make seed`
-- `make init-db`
-- `make logs-ingestor`
+- `make logs` / `make logs-ingestor` / `make logs-plugins`
+- `make restart`
+- `make ps`
+- `make query-telemetry`
 - `make query-devices`
 - `make query-sensors`
-- `make query-seed`
-- `make query-telemetry`
+- `make query-plugins`
 - `make redis-stream`
+- `make redis-registration`
 
 Future full 8-service compose layout:
 - [this part is not currently implemented, will be replaced with details of internals later]
@@ -586,9 +661,11 @@ NodeLens is a Docker Compose-deployed, self-hosted IoT telemetry monitoring syst
 Current implemented slice:
 - PostgreSQL + TimescaleDB
 - Redis Streams
-- ingestor worker
-- seed/init scripts
-- temporary fake publisher for telemetry generation
+- Ingestor worker (telemetry consumer + registration consumer)
+- Plugins worker (supervisor + subprocess launcher)
+- Plugin SDK (BasePlugin, DevicePlugin, IntegrationPlugin, PluginContext)
+- Built-in demo_sender device plugin (generates synthetic telemetry)
+- Registration stream for idempotent plugin/device/sensor metadata upserts
 
 Anything not explicitly fixed above should be treated as:
 
