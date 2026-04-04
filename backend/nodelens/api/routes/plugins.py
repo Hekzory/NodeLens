@@ -3,14 +3,14 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from nodelens.api.deps import get_db
-from nodelens.db.models import Plugin, Device
-from nodelens.schemas.plugins import PluginRead, PluginUpdate
+from nodelens.db.models import Device, Plugin
 from nodelens.schemas.devices import DeviceRead
+from nodelens.schemas.plugins import PluginRead, PluginUpdate
 
 router = APIRouter(prefix="/api/plugins", tags=["plugins"])
 
@@ -97,17 +97,7 @@ async def list_plugin_devices(
     if plugin is None:
         raise HTTPException(status_code=404, detail="Plugin not found")
 
-    stmt = (
-        select(
-            Device,
-            func.count().over(partition_by=Device.id).label("sensor_count"),
-        )
-        .outerjoin(Device.sensors)
-        .where(Device.plugin_id == plugin_id)
-        .group_by(Device.id)
-        .order_by(Device.created_at)
-    )
-    # Simpler approach: query devices then count sensors
+    # Query devices then count sensors
     devices_stmt = (
         select(Device)
         .where(Device.plugin_id == plugin_id)

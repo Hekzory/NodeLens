@@ -21,9 +21,14 @@ dependencies = [
 dev = [
     "pytest",
     "pytest-asyncio",
+    "httpx",
     "ruff",
     "mypy",
 ]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["nodelens"]

@@ -335,8 +335,9 @@ Currently implemented parts:
 - `nodelens/workers/ingestor` → telemetry consumer, registration consumer, writer with validation
 - `nodelens/workers/plugin_runner` → plugin supervisor, loader, single-plugin subprocess runner
 
+- `tests/` → unit tests (pytest + pytest-asyncio); covers event parsing, writer validation pipeline, registration coercion, plugin loader/discovery, and API route logic (alerts, telemetry, dashboards)
+
 Planned but not implemented yet:
-- `nodelens/api` → FastAPI service
 - `nodelens/workers/alerts` → alert worker
 - `alembic/` → migrations
 
@@ -361,9 +362,6 @@ Utility scripts for setup/seed/health.
 Currently implemented:
 - `init_db.py`
 - `seed_db.py`
-
-### `/tests`
-Unit/API/integration test placeholders
 
 ### `/docs`
 Architecture/deployment/plugin docs

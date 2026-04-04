@@ -3,13 +3,13 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select, func
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from nodelens.api.deps import get_db
 from nodelens.db.models import Device, Sensor
-from nodelens.schemas.devices import DeviceRead, DeviceDetail, SensorRead, SensorBrief
+from nodelens.schemas.devices import DeviceDetail, DeviceRead, SensorBrief, SensorRead
 
 router = APIRouter(prefix="/api/devices", tags=["devices"])
 

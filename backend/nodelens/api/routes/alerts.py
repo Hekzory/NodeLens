@@ -4,17 +4,16 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select, func, desc
+from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from nodelens.api.deps import get_db
-from nodelens.db.models import AlertRule, AlertHistory, Sensor
+from nodelens.db.models import AlertHistory, AlertRule, Sensor
 from nodelens.schemas.alerts import (
-    AlertRuleCreate,
-    AlertRuleUpdate,
-    AlertRuleRead,
     AlertHistoryRead,
+    AlertRuleCreate,
+    AlertRuleRead,
+    AlertRuleUpdate,
 )
 
 router = APIRouter(prefix="/api/alerts", tags=["alerts"])
