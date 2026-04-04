@@ -7,6 +7,9 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
     PLUGINS_DIR: str = "plugins"
 
+    API_HOST: str = "0.0.0.0"
+    API_PORT: int = 8000
+
     model_config = {"env_file": ".env", "extra": "ignore"}
 
 

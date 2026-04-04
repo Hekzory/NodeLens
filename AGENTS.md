@@ -16,9 +16,10 @@ Important:
 - A minimal runnable slice **does exist now**:
   - PostgreSQL + TimescaleDB
   - Redis Streams
+  - Web backend (FastAPI)
   - Ingestor
   - Plugins worker (with a built-in demo_sender device plugin)
-- `docker-compose.yml` currently starts 4 services: `postgres`, `redis`, `ingestor`, `plugins`.
+- `docker-compose.yml` currently starts 5 services: `postgres`, `redis`, `api`, `ingestor`, `plugins`.
 - Metadata required for ingestion (`plugins`, `devices`, `sensors`) is registered at runtime by plugins themselves via the `registration_events` Redis stream. The ingestor consumes that stream and upserts rows into the DB. Registration is idempotent — plugins re-register on every restart.
 - Python target is **3.13**.
 - Python dependencies are managed with **uv** from `backend/pyproject.toml`.
@@ -103,9 +104,10 @@ Current implementation note:
 - The **currently implemented runtime subset** is:
   1. PostgreSQL + TimescaleDB
   2. Redis Streams
-  3. Ingestor
-  4. Plugins worker
-- Frontend, web backend, MQTT broker usage, and alert processor are not yet active runtime components in the current iteration.
+  3. Web backend (FastAPI)
+  4. Ingestor
+  5. Plugins worker
+- Frontend, MQTT broker usage, and alert processor are not yet active runtime components in the current iteration.
 
 ---
 
@@ -381,7 +383,46 @@ Expected concerns:
 - health endpoints
 
 Exact routes and payloads:
-- [this part is not currently implemented, will be replaced with details of internals later]
+
+**Health** `health.py`
+- `GET /api/health` — liveness
+- `GET /api/health/db` — DB check
+
+**Plugins** `plugins.py`
+- `GET /api/plugins` — list with device count
+- `GET /api/plugins/{plugin_id}` — get single
+- `PATCH /api/plugins/{plugin_id}` — toggle `is_active`
+- `GET /api/plugins/{plugin_id}/devices` — list devices for plugin
+
+**Devices** `devices.py`
+- `GET /api/devices` — list (with plugin/online filters)
+- `GET /api/devices/{device_id}` — detail with sensors
+- `GET /api/devices/{device_id}/sensors` — list sensors for device
+
+**Telemetry** `telemetry.py`
+- `GET /api/telemetry/{sensor_id}` — time-series data
+- `GET /api/telemetry/{sensor_id}/latest` — single latest reading
+- `GET /api/telemetry/{sensor_id}/summary` — min/max/avg for time window
+- `GET /api/telemetry/device/{device_id}` — latest readings from all sensors on device
+
+**Alerts** `alerts.py`
+- `GET /api/alerts/rules` — list rules
+- `POST /api/alerts/rules` — create rule
+- `GET /api/alerts/rules/{rule_id}` — get single rule
+- `PATCH /api/alerts/rules/{rule_id}` — partial update
+- `DELETE /api/alerts/rules/{rule_id}` — delete rule
+- `GET /api/alerts/history` — list fired alerts (paginated, filterable)
+- `POST /api/alerts/history/{history_id}/acknowledge` — mark acknowledged
+
+**Dashboards** `dashboards.py`
+- `GET /api/dashboards` — list dashboards
+- `POST /api/dashboards` — create dashboard
+- `GET /api/dashboards/{dashboard_id}` — detail with widgets
+- `PATCH /api/dashboards/{dashboard_id}` — partial update
+- `DELETE /api/dashboards/{dashboard_id}` — delete dashboard
+- `POST /api/dashboards/{dashboard_id}/widgets` — add widget
+- `PATCH /api/dashboards/{dashboard_id}/widgets/{widget_id}` — update widget config/layout
+- `DELETE /api/dashboards/{dashboard_id}/widgets/{widget_id}` — remove widget
 
 ### `backend/nodelens/db`
 Database access and models.
@@ -423,8 +464,35 @@ Current implemented schema subset:
   - `value_text: VARCHAR | NULL`
   - primary key: (`time`, `sensor_id`)
 
-Current Timescale behavior:
-- `telemetry` is converted into a hypertable partitioned by `time`
+- `alert_rules`
+  - `id: UUID` (PK)
+  - `name: VARCHAR`
+  - `sensor_id: UUID` (FK)
+  - `rule_type: VARCHAR` ('instant' or 'aggregated')
+  - `condition: VARCHAR` (gt, lt, eq, no_data, etc.)
+  - `threshold: FLOAT`
+  - `duration_seconds: INT`, `cooldown_seconds: INT`
+  - `is_active: BOOLEAN`
+
+- `alert_history`
+  - `id: UUID` (PK)
+  - `rule_id: UUID` (FK)
+  - `triggered_value: FLOAT`
+  - `message: VARCHAR`
+  - `triggered_at: TIMESTAMPTZ`
+  - `acknowledged_at: TIMESTAMPTZ`
+
+- `dashboards`
+  - `id: UUID` (PK)
+  - `name: VARCHAR`
+  - `is_default: BOOLEAN`
+
+- `dashboard_widgets`
+  - `id: UUID` (PK)
+  - `dashboard_id: UUID` (FK)
+  - `widget_type: VARCHAR`
+  - `config: JSONB`
+  - `layout: JSONB`
 
 Full future application schema beyond this subset:
 - [this part is not currently implemented, will be replaced with details of internals later]
@@ -509,8 +577,8 @@ Current semantics:
 - sensor_id = stringified `sensors.id`
 - plugin_id = stringified `plugins.id`
 
-Other API / plugin / alert schemas:
-- [this part is not currently implemented, will be replaced with details of internals later]
+Other API schemas:
+- Implemented as Pydantic models in `backend/nodelens/schemas/` covering responses for alerts, dashboards, devices, plugins, and telemetry.
 
 
 ### `backend/nodelens/sdk`
@@ -541,7 +609,7 @@ Expected rule categories:
 - compound logic
 
 Exact alert DSL / configuration schema:
-- [this part is not currently implemented, will be replaced with details of internals later]
+- Rules are persisted via Web Backend API as either `instant` (single realtime value vs threshold) or `aggregated` (agg function over a time window `duration_seconds`).
 
 Exact deduplication, cooldown, acknowledgement behavior:
 - [this part is not currently implemented, will be replaced with details of internals later]
@@ -563,7 +631,7 @@ Expected capabilities:
 - polling-based refresh
 
 Exact widget catalog and layout persistence format:
-- [this part is not currently implemented, will be replaced with details of internals later]
+- Widgets (`chart`, `gauge`, `stat_card`, `status`) are saved in DB via Web Backend API with `config` and `layout` as flexible `JSONB` blobs to be interpreted by the frontend.
 
 ---
 
@@ -581,6 +649,7 @@ Current compose/runtime definitions:
 - `docker-compose.yml` currently runs:
   - `postgres`
   - `redis`
+  - `api`
   - `ingestor`
   - `plugins`
 
@@ -597,8 +666,8 @@ Current useful commands:
 - `make up`
 - `make down` / `make down-v`
 - `make seed`
-- `make logs` / `make logs-ingestor` / `make logs-plugins`
-- `make restart`
+- `make logs` / `make logs-ingestor` / `make logs-plugins` / `make logs-api`
+- `make restart` / `make restart-api`
 - `make ps`
 - `make query-telemetry`
 - `make query-devices`
@@ -618,11 +687,9 @@ Do not assume any of the following already exist unless they are explicitly impl
 - authentication system
 - finalized full application database schema beyond the currently implemented ingestion subset
 - finalized Redis/event contracts beyond the currently implemented telemetry ingestion contract
-- finished API routes
 - plugin hot-reloading
 - plugin security sandboxing
 - detailed alert delivery engine
-- dashboard widget persistence logic
 - observability stack
 - production hardening
 
@@ -661,6 +728,7 @@ NodeLens is a Docker Compose-deployed, self-hosted IoT telemetry monitoring syst
 Current implemented slice:
 - PostgreSQL + TimescaleDB
 - Redis Streams
+- Web Backend (FastAPI, 6 domains: health, plugins, devices, telemetry, alerts, dashboards)
 - Ingestor worker (telemetry consumer + registration consumer)
 - Plugins worker (supervisor + subprocess launcher)
 - Plugin SDK (BasePlugin, DevicePlugin, IntegrationPlugin, PluginContext)

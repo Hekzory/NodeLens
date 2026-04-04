@@ -7,3 +7,7 @@ COPY backend/ .
 COPY scripts/ ./scripts/
 
 RUN uv pip install --system --no-cache .
+
+EXPOSE 8000
+
+CMD ["python", "-m", "nodelens.api"]

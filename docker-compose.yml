@@ -62,6 +62,23 @@ services:
         condition: service_started
     restart: unless-stopped
 
+  api:
+    build:
+      context: .
+      dockerfile: deploy/api.Dockerfile
+    environment:
+      DATABASE_URL: "postgresql+asyncpg://nodelens:nodelens@postgres:5432/nodelens"
+      REDIS_URL: "redis://redis:6379/0"
+      LOG_LEVEL: "INFO"
+      API_HOST: "0.0.0.0"
+      API_PORT: "8000"
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
   seed:
     build:
       context: .

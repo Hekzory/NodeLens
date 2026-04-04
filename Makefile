@@ -1,4 +1,4 @@
-.PHONY: up down down-v logs logs-ingestor logs-plugins ps restart seed
+.PHONY: up down down-v logs logs-ingestor logs-plugins logs-api ps restart restart-api seed api-docs curl-health
 
 up:
 	docker compose up -d --build
@@ -18,14 +18,36 @@ logs-ingestor:
 logs-plugins:
 	docker compose logs -f plugins
 
+logs-api:
+	docker compose logs -f api
+
 ps:
 	docker compose ps
 
 restart:
-	docker compose restart ingestor plugins
+	docker compose restart ingestor plugins api
+
+restart-api:
+	docker compose restart api
 
 seed:
 	docker compose run --rm seed
+
+api-docs:
+	@echo "Swagger UI: http://localhost:8000/docs"
+	@echo "ReDoc:      http://localhost:8000/redoc"
+
+curl-health:
+	curl -s http://localhost:8000/api/health | python3 -m json.tool
+
+curl-health-db:
+	curl -s http://localhost:8000/api/health/db | python3 -m json.tool
+
+curl-plugins:
+	curl -s http://localhost:8000/api/plugins | python3 -m json.tool
+
+curl-devices:
+	curl -s http://localhost:8000/api/devices | python3 -m json.tool
 
 query-telemetry:
 	docker compose exec postgres psql -U nodelens -d nodelens \
