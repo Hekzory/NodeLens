@@ -52,10 +52,13 @@ services:
       context: .
       dockerfile: deploy/plugins.Dockerfile
     environment:
+      DATABASE_URL: "postgresql+asyncpg://nodelens:nodelens@postgres:5432/nodelens"
       REDIS_URL: "redis://redis:6379/0"
       LOG_LEVEL: "INFO"
       PLUGINS_DIR: "plugins"
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
       ingestor:

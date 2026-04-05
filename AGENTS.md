@@ -63,10 +63,16 @@ The container/component layout is fixed and should be preserved.
 There are **8 containers**:
 
 1. **Web frontend**
-   - React + TypeScript
-   - built during Docker image build
-   - served by nginx
-   - talks to backend over HTTP only
+   - React 19 + TypeScript, Vite, pnpm
+   - UI: Mantine v7 (dark-only theme, `forceColorScheme="dark"`)
+   - Data: TanStack Query (10s polling interval)
+   - Routing: React Router v7
+   - Charts: @mantine/charts (Recharts wrapper)
+   - Dashboard layout: react-grid-layout v2 (drag/resize with `dragConfig`/`resizeConfig`, `useContainerWidth()` for width)
+   - Icons: @tabler/icons-react
+   - built during Docker image build (multi-stage: node:22-alpine → nginx:alpine)
+   - served by nginx, proxies `/api/` to backend
+   - talks to backend over HTTP only, polling-based
 
 2. **Web backend**
    - Python + FastAPI
@@ -107,7 +113,9 @@ Current implementation note:
   3. Web backend (FastAPI)
   4. Ingestor
   5. Plugins worker
-- Frontend, MQTT broker usage, and alert processor are not yet active runtime components in the current iteration.
+  6. Frontend (React, served by nginx)
+- Frontend is implemented as an MVP (dashboard, devices, plugins pages).
+- MQTT broker usage and alert processor are not yet active runtime components in the current iteration.
 
 ---
 
@@ -120,7 +128,7 @@ Current implementation note:
 - Database: PostgreSQL + TimescaleDB extension
 - Event bus: Redis Streams
 - MQTT: Mosquitto
-- Frontend: React + TypeScript
+- Frontend: React 19 + TypeScript, Vite, pnpm, Mantine v7, TanStack Query, react-grid-layout v2
 - Deployment: Docker Compose
 
 Current core Python deps for the implemented part:

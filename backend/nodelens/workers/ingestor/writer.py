@@ -22,6 +22,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import IntegrityError
 
 from nodelens.db.models.device import Device
+from nodelens.db.models.plugin import Plugin
 from nodelens.db.models.sensor import Sensor
 from nodelens.db.models.telemetry import TelemetryRecord
 from nodelens.db.session import async_session
@@ -122,8 +123,7 @@ async def _load_mappings(
 
     Returns:
         sensor_device_map: ``{sensor_id: device_id}`` for sensors that exist.
-        valid_device_ids:  set of device_ids that exist (the FK on
-                           ``devices.plugin_id`` guarantees the plugin exists).
+        valid_device_ids:  set of device_ids that exist and whose plugin is active.
     """
     async with async_session() as session:
         result = await session.execute(
@@ -132,7 +132,9 @@ async def _load_mappings(
         sensor_device_map: dict[uuid.UUID, uuid.UUID] = {row.id: row.device_id for row in result}
 
         result = await session.execute(
-            select(Device.id).where(Device.id.in_(device_ids))
+            select(Device.id)
+            .join(Plugin, Device.plugin_id == Plugin.id)
+            .where(Device.id.in_(device_ids), Plugin.is_active.is_(True))
         )
         valid_device_ids: set[uuid.UUID] = {row.id for row in result}
 

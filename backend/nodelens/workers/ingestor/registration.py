@@ -138,7 +138,6 @@ async def _upsert_plugin(event: RegisterPluginEvent) -> None:
                 set_={
                     "display_name": values["display_name"],
                     "version": values["version"],
-                    "is_active": True,
                 },
             )
         )
