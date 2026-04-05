@@ -47,6 +47,9 @@ jobs:
           - name: api
             dockerfile: deploy/api.Dockerfile
             context: .
+          - name: frontend
+            dockerfile: frontend/Dockerfile
+            context: ./frontend
 
     steps:
       - uses: actions/checkout@v6
