@@ -5,6 +5,7 @@ export interface TelemetryParams {
   start?: string;
   end?: string;
   limit?: number;
+  interval?: string;
 }
 
 const qs = (params?: TelemetryParams) => {
@@ -12,6 +13,7 @@ const qs = (params?: TelemetryParams) => {
   if (params?.start) q.set('start', params.start);
   if (params?.end) q.set('end', params.end);
   if (params?.limit) q.set('limit', String(params.limit));
+  if (params?.interval) q.set('interval', params.interval);
   return q.toString() ? `?${q}` : '';
 };
 

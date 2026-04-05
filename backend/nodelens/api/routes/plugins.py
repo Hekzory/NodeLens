@@ -1,6 +1,7 @@
 """Plugin endpoints."""
 
 import uuid
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
@@ -11,6 +12,8 @@ from nodelens.api.deps import get_db
 from nodelens.db.models import Device, Plugin
 from nodelens.schemas.devices import DeviceRead
 from nodelens.schemas.plugins import PluginRead, PluginUpdate
+
+ONLINE_THRESHOLD = timedelta(minutes=30)
 
 router = APIRouter(prefix="/api/plugins", tags=["plugins"])
 
@@ -105,9 +108,15 @@ async def list_plugin_devices(
         .order_by(Device.created_at)
     )
     devices = (await db.execute(devices_stmt)).scalars().all()
+    cutoff = datetime.now(UTC) - ONLINE_THRESHOLD
     results = []
     for device in devices:
         data = DeviceRead.model_validate(device)
         data.sensor_count = len(device.sensors)
+        data.is_online = (
+            plugin.is_active
+            and device.last_seen is not None
+            and device.last_seen >= cutoff
+        )
         results.append(data)
     return results

@@ -1,15 +1,44 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  Group, Select, Button, Text, Center, Stack, Loader, Modal,
+  Group, Select, Button, Text, Center, Stack, Loader, Modal, SegmentedControl,
 } from '@mantine/core';
-import { IconPlus, IconEdit, IconTrash, IconLayoutGrid, IconRefresh } from '@tabler/icons-react';
+import { IconPlus, IconEdit, IconTrash, IconLayoutGrid, IconRefresh, IconClock } from '@tabler/icons-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useDashboards, useDashboard, useCreateDashboard, useUpdateDashboard, useDeleteDashboard } from '@/hooks/dashboards';
 import { WidgetGrid } from '@/components/dashboard/WidgetGrid';
 import { AddWidgetModal } from '@/components/dashboard/AddWidgetModal';
 import { DashboardSettingsModal } from '@/components/dashboard/DashboardSettingsModal';
+import { TimeRangeProvider, TIME_PRESETS, useTimeRange } from '@/context/TimeRange';
 import type { DashboardCreate } from '@/types';
+
+function TimeRangeSelector() {
+  const { preset, setPreset, interval, setInterval, availableIntervals } = useTimeRange();
+  return (
+    <Group gap="xs">
+      <Group gap={4}>
+        <IconClock size={14} style={{ opacity: 0.5 }} />
+        <SegmentedControl
+          size="xs"
+          value={preset}
+          onChange={setPreset}
+          data={TIME_PRESETS.map((p) => ({ label: p.label, value: p.value }))}
+        />
+      </Group>
+      {availableIntervals.length > 1 && (
+        <Select
+          size="xs"
+          value={interval}
+          onChange={(v) => setInterval(v ?? '')}
+          data={availableIntervals.map((iv) => ({ label: iv.label, value: iv.value }))}
+          w={80}
+          placeholder="Interval"
+          allowDeselect={false}
+        />
+      )}
+    </Group>
+  );
+}
 
 export function DashboardPage() {
   const { id: paramId } = useParams<{ id?: string }>();
@@ -70,7 +99,7 @@ export function DashboardPage() {
   }
 
   return (
-    <>
+    <TimeRangeProvider>
       <Group mb="md" justify="space-between">
         <Group>
           <Select
@@ -79,14 +108,7 @@ export function DashboardPage() {
             data={(dashboards ?? []).map((d) => ({ value: d.id, label: d.name }))}
             w={200}
           />
-          <Button
-            size="xs"
-            variant="default"
-            leftSection={<IconPlus size={14} />}
-            onClick={() => { setEditingDashboard(false); setSettingsOpen(true); }}
-          >
-            New
-          </Button>
+          <TimeRangeSelector />
         </Group>
         <Group>
           <Button
@@ -110,6 +132,14 @@ export function DashboardPage() {
           </Button>
           {editMode && (
             <>
+              <Button
+                size="xs"
+                variant="default"
+                leftSection={<IconPlus size={14} />}
+                onClick={() => { setEditingDashboard(false); setSettingsOpen(true); }}
+              >
+                New
+              </Button>
               <Button size="xs" leftSection={<IconPlus size={14} />} onClick={() => setAddWidgetOpen(true)}>
                 Add Widget
               </Button>
@@ -175,6 +205,6 @@ export function DashboardPage() {
           <Button color="red" onClick={handleDelete}>Delete</Button>
         </Group>
       </Modal>
-    </>
+    </TimeRangeProvider>
   );
 }

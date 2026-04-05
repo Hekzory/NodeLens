@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from nodelens.workers.plugin_runner.loader import load_manifest, load_plugin_class
 from nodelens.sdk.base_plugin import BasePlugin
+from nodelens.workers.plugin_runner.loader import load_manifest, load_plugin_class
 
 # ── Helpers ──────────────────────────────────────────────────────
 
@@ -66,11 +66,11 @@ class TestLoadManifest:
         with pytest.raises((FileNotFoundError, OSError)):
             load_manifest(plugin_dir)
 
-    def test_non_mapping_yaml_raises_valueerror(self, tmp_path):
+    def test_non_mapping_yaml_raises_typeerror(self, tmp_path):
         plugin_dir = tmp_path / "devices" / "bad_manifest"
         plugin_dir.mkdir(parents=True)
         (plugin_dir / "manifest.yaml").write_text("- item1\n- item2\n")
-        with pytest.raises(ValueError, match="mapping"):
+        with pytest.raises(TypeError, match="mapping"):
             load_manifest(plugin_dir)
 
 

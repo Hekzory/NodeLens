@@ -58,7 +58,7 @@ export function DevicesPage() {
               <Table.Td fw={500}>{device.name}</Table.Td>
               <Table.Td><Text size="sm" c="dimmed">{device.location ?? '—'}</Text></Table.Td>
               <Table.Td>
-                <Badge color={device.is_online ? 'green' : 'gray'} variant="dot">
+                <Badge color={device.is_online ? 'green' : 'red'} variant="dot">
                   {device.is_online ? 'Online' : 'Offline'}
                 </Badge>
               </Table.Td>

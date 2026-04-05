@@ -4,7 +4,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import desc, func, select
+from sqlalchemy import desc, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -20,48 +20,94 @@ from nodelens.schemas.telemetry import (
 
 router = APIRouter(prefix="/api/telemetry", tags=["telemetry"])
 
+# Whitelist of allowed time_bucket intervals to prevent injection.
+_ALLOWED_INTERVALS: dict[str, str] = {
+    "10s": "10 seconds",
+    "1m": "1 minute",
+    "15m": "15 minutes",
+    "30m": "30 minutes",
+    "1h": "1 hour",
+    "6h": "6 hours",
+    "12h": "12 hours",
+    "1d": "1 day",
+}
+
 
 @router.get("/{sensor_id}", response_model=TelemetrySeriesRead)
 async def get_telemetry_series(
     sensor_id: uuid.UUID,
     start: datetime | None = Query(default=None, description="Start of time range (ISO 8601)"),
     end: datetime | None = Query(default=None, description="End of time range (ISO 8601)"),
-    limit: int = Query(default=500, ge=1, le=10000, description="Max points to return"),
+    limit: int = Query(default=5000, ge=1, le=50000, description="Max points to return"),
+    interval: str | None = Query(default=None, description="Aggregation interval (1m, 15m, 30m, 1h, 6h, 12h, 1d)"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Get time-series data for a sensor within a time range."""
-    # Verify sensor exists
+    """Get time-series data for a sensor within a time range.
+
+    When ``interval`` is set, points are aggregated into time buckets using
+    TimescaleDB ``time_bucket`` and averaged.
+    """
     sensor = await db.get(Sensor, sensor_id)
     if sensor is None:
         raise HTTPException(status_code=404, detail="Sensor not found")
 
-    # Default to last 1 hour
     if end is None:
         end = datetime.now(UTC)
     if start is None:
         start = end - timedelta(hours=1)
 
-    stmt = (
-        select(TelemetryRecord)
-        .where(
-            TelemetryRecord.sensor_id == sensor_id,
-            TelemetryRecord.time >= start,
-            TelemetryRecord.time <= end,
-        )
-        .order_by(TelemetryRecord.time.desc())
-        .limit(limit)
-    )
-    rows = (await db.execute(stmt)).scalars().all()
+    if interval and interval not in _ALLOWED_INTERVALS:
+        raise HTTPException(status_code=400, detail=f"Invalid interval. Allowed: {', '.join(_ALLOWED_INTERVALS)}")
 
-    points = [
-        TelemetryPointRead(
-            time=r.time,
-            sensor_id=r.sensor_id,
-            value_numeric=r.value_numeric,
-            value_text=r.value_text,
+    if interval:
+        pg_interval = _ALLOWED_INTERVALS[interval]
+        bucket = func.time_bucket(text(f"'{pg_interval}'"), TelemetryRecord.time).label("bucket")
+        stmt = (
+            select(
+                bucket,
+                func.avg(TelemetryRecord.value_numeric).label("avg_value"),
+            )
+            .where(
+                TelemetryRecord.sensor_id == sensor_id,
+                TelemetryRecord.time >= start,
+                TelemetryRecord.time <= end,
+            )
+            .group_by(text("bucket"))
+            .order_by(text("bucket DESC"))
+            .limit(limit)
         )
-        for r in reversed(rows)  # Return chronological order
-    ]
+        rows = (await db.execute(stmt)).all()
+        points = [
+            TelemetryPointRead(
+                time=row.bucket,
+                sensor_id=sensor_id,
+                value_numeric=float(row.avg_value) if row.avg_value is not None else None,
+                value_text=None,
+            )
+            for row in reversed(rows)
+        ]
+    else:
+        stmt = (
+            select(TelemetryRecord)
+            .where(
+                TelemetryRecord.sensor_id == sensor_id,
+                TelemetryRecord.time >= start,
+                TelemetryRecord.time <= end,
+            )
+            .order_by(TelemetryRecord.time.desc())
+            .limit(limit)
+        )
+        rows = (await db.execute(stmt)).scalars().all()
+        points = [
+            TelemetryPointRead(
+                time=r.time,
+                sensor_id=r.sensor_id,
+                value_numeric=r.value_numeric,
+                value_text=r.value_text,
+            )
+            for r in reversed(rows)
+        ]
+
     return TelemetrySeriesRead(sensor_id=sensor_id, points=points, count=len(points))
 
 

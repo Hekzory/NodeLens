@@ -1,10 +1,12 @@
 import { Stack, Text, Group, Loader, Center } from '@mantine/core';
 import { useTelemetryLatest, useTelemetrySummary } from '@/hooks/telemetry';
+import { useTimeRange } from '@/context/TimeRange';
 import type { Widget } from '@/types';
 
 export function StatCardWidget({ widget }: { widget: Widget }) {
+  const { start, end } = useTimeRange();
   const { data, isLoading } = useTelemetryLatest(widget.sensor_id);
-  const { data: summary } = useTelemetrySummary(widget.sensor_id);
+  const { data: summary } = useTelemetrySummary(widget.sensor_id, { start, end });
 
   if (isLoading) return <Center h="100%"><Loader size="sm" /></Center>;
 
