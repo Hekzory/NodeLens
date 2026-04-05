@@ -3,7 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   Group, Select, Button, Text, Center, Stack, Loader, Modal,
 } from '@mantine/core';
-import { IconPlus, IconEdit, IconTrash, IconLayoutGrid } from '@tabler/icons-react';
+import { IconPlus, IconEdit, IconTrash, IconLayoutGrid, IconRefresh } from '@tabler/icons-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useDashboards, useDashboard, useCreateDashboard, useUpdateDashboard, useDeleteDashboard } from '@/hooks/dashboards';
 import { WidgetGrid } from '@/components/dashboard/WidgetGrid';
 import { AddWidgetModal } from '@/components/dashboard/AddWidgetModal';
@@ -13,6 +14,7 @@ import type { DashboardCreate } from '@/types';
 export function DashboardPage() {
   const { id: paramId } = useParams<{ id?: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { data: dashboards, isLoading: listLoading } = useDashboards();
 
   const activeDashboardId = paramId ?? dashboards?.find((d) => d.is_default)?.id ?? dashboards?.[0]?.id ?? '';
@@ -87,6 +89,17 @@ export function DashboardPage() {
           </Button>
         </Group>
         <Group>
+          <Button
+            size="xs"
+            variant="default"
+            leftSection={<IconRefresh size={14} />}
+            onClick={() => {
+              queryClient.invalidateQueries({ queryKey: ['dashboards', activeDashboardId] });
+              queryClient.invalidateQueries({ queryKey: ['telemetry'] });
+            }}
+          >
+            Refresh
+          </Button>
           <Button
             size="xs"
             variant={editMode ? 'filled' : 'default'}

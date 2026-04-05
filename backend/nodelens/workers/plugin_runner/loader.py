@@ -19,7 +19,7 @@ def load_manifest(plugin_dir: Path) -> dict[str, Any]:
     with manifest_path.open() as fh:
         data = yaml.load(fh)
     if not isinstance(data, dict):
-        raise ValueError(f"Manifest must be a YAML mapping, got {type(data).__name__}")
+        raise TypeError(f"Manifest must be a YAML mapping, got {type(data).__name__}")
     return data
 
 

@@ -1,7 +1,7 @@
 """Alert rule & alert history endpoints."""
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import desc, select
@@ -180,7 +180,7 @@ async def acknowledge_alert(
     if history.acknowledged_at is not None:
         raise HTTPException(status_code=400, detail="Alert already acknowledged")
 
-    history.acknowledged_at = datetime.now(timezone.utc)
+    history.acknowledged_at = datetime.now(UTC)
     await db.commit()
     await db.refresh(history)
 

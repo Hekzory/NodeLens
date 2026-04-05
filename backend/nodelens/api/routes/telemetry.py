@@ -1,21 +1,21 @@
 """Telemetry query endpoints."""
 
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select, func, desc
+from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from nodelens.api.deps import get_db
-from nodelens.db.models import TelemetryRecord, Sensor, Device
+from nodelens.db.models import Device, Sensor, TelemetryRecord
 from nodelens.schemas.telemetry import (
+    DeviceTelemetryRead,
+    TelemetryLatest,
     TelemetryPointRead,
     TelemetrySeriesRead,
     TelemetrySummary,
-    TelemetryLatest,
-    DeviceTelemetryRead,
 )
 
 router = APIRouter(prefix="/api/telemetry", tags=["telemetry"])
@@ -37,7 +37,7 @@ async def get_telemetry_series(
 
     # Default to last 1 hour
     if end is None:
-        end = datetime.now(timezone.utc)
+        end = datetime.now(UTC)
     if start is None:
         start = end - timedelta(hours=1)
 
@@ -110,7 +110,7 @@ async def get_telemetry_summary(
         raise HTTPException(status_code=404, detail="Sensor not found")
 
     if end is None:
-        end = datetime.now(timezone.utc)
+        end = datetime.now(UTC)
     if start is None:
         start = end - timedelta(hours=1)
 

@@ -1,6 +1,7 @@
 """Device & sensor endpoints."""
 
 import uuid
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
@@ -13,6 +14,18 @@ from nodelens.schemas.devices import DeviceDetail, DeviceRead, SensorBrief, Sens
 
 router = APIRouter(prefix="/api/devices", tags=["devices"])
 
+ONLINE_THRESHOLD = timedelta(minutes=30)
+
+
+def _compute_online(device: Device) -> bool:
+    """A device is online only if its plugin is active and it was seen recently."""
+    if not device.plugin.is_active:
+        return False
+    if device.last_seen is None:
+        return False
+    cutoff = datetime.now(UTC) - ONLINE_THRESHOLD
+    return device.last_seen >= cutoff
+
 
 @router.get("", response_model=list[DeviceRead])
 async def list_devices(
@@ -23,18 +36,20 @@ async def list_devices(
     """List all devices with optional filters."""
     stmt = (
         select(Device)
-        .options(selectinload(Device.sensors))
+        .options(selectinload(Device.sensors), selectinload(Device.plugin))
         .order_by(Device.created_at)
     )
     if plugin_id is not None:
         stmt = stmt.where(Device.plugin_id == plugin_id)
-    if is_online is not None:
-        stmt = stmt.where(Device.is_online == is_online)
 
     devices = (await db.execute(stmt)).scalars().all()
     results = []
     for device in devices:
+        online = _compute_online(device)
+        if is_online is not None and online != is_online:
+            continue
         data = DeviceRead.model_validate(device)
+        data.is_online = online
         data.sensor_count = len(device.sensors)
         results.append(data)
     return results
@@ -46,7 +61,7 @@ async def get_device(device_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     stmt = (
         select(Device)
         .where(Device.id == device_id)
-        .options(selectinload(Device.sensors))
+        .options(selectinload(Device.sensors), selectinload(Device.plugin))
     )
     device = (await db.execute(stmt)).scalar_one_or_none()
     if device is None:
@@ -58,7 +73,7 @@ async def get_device(device_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
         external_id=device.external_id,
         name=device.name,
         location=device.location,
-        is_online=device.is_online,
+        is_online=_compute_online(device),
         last_seen=device.last_seen,
         created_at=device.created_at,
         sensors=[SensorBrief.model_validate(s) for s in device.sensors],
