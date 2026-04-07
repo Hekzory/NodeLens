@@ -1,0 +1,28 @@
+## docker-compose overlay for load testing.
+## Usage:  docker compose -f docker-compose.yml -f docker-compose.loadtest.yml ...
+##
+## What it changes:
+##   - postgres uses an ephemeral volume (pgdata_loadtest) so real data is untouched
+##   - the plugins service is disabled (no real device plugins during the test)
+##   - frontend / api are not started (not needed for ingest-path testing)
+
+services:
+  postgres:
+    volumes:
+      - pgdata_loadtest:/var/lib/postgresql/data
+      - ./deploy/postgres/init.sql:/docker-entrypoint-initdb.d/001-init.sql
+
+  plugins:
+    profiles: [disabled]
+
+  api:
+    profiles: [disabled]
+
+  frontend:
+    profiles: [disabled]
+
+  seed:
+    profiles: [disabled]
+
+volumes:
+  pgdata_loadtest:

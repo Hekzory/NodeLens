@@ -1,4 +1,4 @@
-.PHONY: up down down-v logs logs-ingestor logs-plugins logs-api ps restart restart-api seed api-docs curl-health test
+.PHONY: up down down-v logs logs-ingestor logs-plugins logs-api ps restart restart-api seed api-docs curl-health test loadtest-up loadtest loadtest-down
 
 test:
 	cd backend && uv run pytest tests/ -v
@@ -78,3 +78,16 @@ redis-stream:
 
 redis-registration:
 	docker compose exec redis redis-cli XLEN registration_events
+
+# ── Load testing (isolated stack, ephemeral volumes) ───────────────
+
+LOADTEST_COMPOSE = docker compose -f docker-compose.yml -f docker-compose.loadtest.yml
+
+loadtest-up:
+	$(LOADTEST_COMPOSE) up -d --build postgres redis ingestor
+
+loadtest:
+	uv run --project backend python scripts/loadtest.py $(ARGS)
+
+loadtest-down:
+	$(LOADTEST_COMPOSE) down -v
