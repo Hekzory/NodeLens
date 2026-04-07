@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useMemo, type ReactNode } from 'react';
+import { createContext, useContext, useState, useMemo, useCallback, useEffect, type ReactNode } from 'react';
 
 export interface TimeRangePreset {
   label: string;
@@ -45,6 +45,22 @@ export function intervalsForRange(rangeMinutes: number): IntervalOption[] {
   });
 }
 
+const STORAGE_KEY_PREFIX = 'nodelens:timerange:';
+
+function loadSaved(dashboardId: string): { preset: string; interval: string } | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_PREFIX + dashboardId);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch { return null; }
+}
+
+function saveToDisk(dashboardId: string, preset: string, interval: string) {
+  try {
+    localStorage.setItem(STORAGE_KEY_PREFIX + dashboardId, JSON.stringify({ preset, interval }));
+  } catch { /* quota exceeded — ignore */ }
+}
+
 export interface TimeRange {
   preset: string;
   setPreset: (v: string) => void;
@@ -59,9 +75,32 @@ export interface TimeRange {
 
 const TimeRangeContext = createContext<TimeRange | null>(null);
 
-export function TimeRangeProvider({ children }: { children: ReactNode }) {
-  const [preset, setPreset] = useState('1h');
-  const [interval, setIntervalState] = useState('10s');
+export function TimeRangeProvider({ dashboardId, children }: { dashboardId: string; children: ReactNode }) {
+  const saved = useMemo(() => loadSaved(dashboardId), [dashboardId]);
+  const [preset, setPresetRaw] = useState(() => saved?.preset ?? '1h');
+  const [interval, setIntervalRaw] = useState(() => saved?.interval ?? '10s');
+
+  // When dashboard changes, load that dashboard's saved settings
+  useEffect(() => {
+    const s = loadSaved(dashboardId);
+    if (s) {
+      setPresetRaw(s.preset);
+      setIntervalRaw(s.interval);
+    } else {
+      setPresetRaw('1h');
+      setIntervalRaw('10s');
+    }
+  }, [dashboardId]);
+
+  const setPreset = useCallback((v: string) => {
+    setPresetRaw(v);
+    saveToDisk(dashboardId, v, interval);
+  }, [dashboardId, interval]);
+
+  const setInterval = useCallback((v: string) => {
+    setIntervalRaw(v);
+    saveToDisk(dashboardId, preset, v);
+  }, [dashboardId, preset]);
 
   const value = useMemo<TimeRange>(() => {
     const p = TIME_PRESETS.find((t) => t.value === preset) ?? TIME_PRESETS[1];
@@ -82,13 +121,13 @@ export function TimeRangeProvider({ children }: { children: ReactNode }) {
       preset,
       setPreset,
       interval: effectiveInterval,
-      setInterval: setIntervalState,
+      setInterval,
       availableIntervals: available,
       start: start.toISOString(),
       end: end.toISOString(),
       gapThresholdMs,
     };
-  }, [preset, interval]);
+  }, [preset, interval, setPreset, setInterval]);
 
   return (
     <TimeRangeContext.Provider value={value}>

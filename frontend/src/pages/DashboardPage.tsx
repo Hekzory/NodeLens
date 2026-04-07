@@ -99,9 +99,9 @@ export function DashboardPage() {
   }
 
   return (
-    <TimeRangeProvider>
-      <Group mb="md" justify="space-between">
-        <Group>
+    <TimeRangeProvider dashboardId={activeDashboardId}>
+      <Group mb="md" justify="space-between" wrap="wrap">
+        <Group wrap="wrap">
           <Select
             value={activeDashboardId}
             onChange={(v) => v && navigate(v === dashboards?.[0]?.id ? '/' : `/dashboards/${v}`)}
@@ -110,7 +110,7 @@ export function DashboardPage() {
           />
           <TimeRangeSelector />
         </Group>
-        <Group>
+        <Group wrap="wrap">
           <Button
             size="xs"
             variant="default"
