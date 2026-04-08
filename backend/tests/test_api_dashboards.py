@@ -1,6 +1,7 @@
 """Unit tests for dashboard API endpoints."""
 
 import uuid
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import httpx
@@ -9,7 +10,7 @@ from fastapi import FastAPI
 
 from nodelens.api.deps import get_db
 from nodelens.api.routes.dashboards import router
-from tests.conftest import make_execute_result, make_mock_db
+from tests.conftest import SENSOR_ID, make_execute_result, make_mock_db
 
 _app = FastAPI()
 _app.include_router(router)
@@ -106,3 +107,149 @@ class TestWidgetOwnershipValidation:
         assert resp.status_code == 200
         # The title should have been set on the widget object
         assert mock_widget.title == "New Title"
+
+
+# ── Helpers ──────────────────────────────────────────────────────
+
+def _make_dashboard():
+    d = MagicMock()
+    d.id = uuid.uuid4()
+    d.name = "My Dashboard"
+    d.description = None
+    d.is_default = False
+    d.created_at = datetime(2024, 1, 1, tzinfo=UTC)
+    d.updated_at = datetime(2024, 1, 1, tzinfo=UTC)
+    return d
+
+
+# ── List dashboards ───────────────────────────────────────────────
+
+class TestListDashboards:
+    async def test_empty_returns_200(self, client, mock_db):
+        result = make_execute_result()
+        result.all.return_value = []
+        mock_db.execute = AsyncMock(return_value=result)
+
+        resp = await client.get("/api/dashboards")
+        assert resp.status_code == 200
+        assert resp.json() == []
+
+    async def test_returns_dashboards_with_widget_count(self, client, mock_db):
+        dashboard = _make_dashboard()
+        result = make_execute_result()
+        result.all.return_value = [(dashboard, 5)]
+        mock_db.execute = AsyncMock(return_value=result)
+
+        resp = await client.get("/api/dashboards")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert len(body) == 1
+        assert body[0]["name"] == "My Dashboard"
+        assert body[0]["widget_count"] == 5
+
+
+# ── Get dashboard ─────────────────────────────────────────────────
+
+class TestGetDashboard:
+    async def test_found_returns_detail(self, client, mock_db):
+        dashboard = _make_dashboard()
+        dashboard.widgets = []
+        mock_db.execute = AsyncMock(return_value=make_execute_result(scalar_one_or_none=dashboard))
+
+        resp = await client.get(f"/api/dashboards/{dashboard.id}")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["name"] == "My Dashboard"
+        assert body["widgets"] == []
+
+    async def test_not_found_returns_404(self, client, mock_db):
+        mock_db.execute = AsyncMock(return_value=make_execute_result(scalar_one_or_none=None))
+
+        resp = await client.get(f"/api/dashboards/{uuid.uuid4()}")
+        assert resp.status_code == 404
+
+
+# ── Update dashboard ──────────────────────────────────────────────
+
+class TestUpdateDashboard:
+    async def test_update_name_returns_200(self, client, mock_db):
+        dashboard = _make_dashboard()
+        mock_db.get = AsyncMock(return_value=dashboard)
+        # execute for widget count query
+        result = make_execute_result()
+        result.scalar.return_value = 0
+        mock_db.execute = AsyncMock(return_value=result)
+
+        resp = await client.patch(f"/api/dashboards/{dashboard.id}", json={"name": "Renamed"})
+        assert resp.status_code == 200
+        assert dashboard.name == "Renamed"
+
+    async def test_not_found_returns_404(self, client, mock_db):
+        mock_db.get = AsyncMock(return_value=None)
+
+        resp = await client.patch(f"/api/dashboards/{uuid.uuid4()}", json={"name": "X"})
+        assert resp.status_code == 404
+
+
+# ── Delete dashboard ──────────────────────────────────────────────
+
+class TestDeleteDashboard:
+    async def test_found_deletes_and_returns_204(self, client, mock_db):
+        dashboard = _make_dashboard()
+        mock_db.get = AsyncMock(return_value=dashboard)
+
+        resp = await client.delete(f"/api/dashboards/{dashboard.id}")
+        assert resp.status_code == 204
+        mock_db.delete.assert_called_once_with(dashboard)
+
+    async def test_not_found_returns_404(self, client, mock_db):
+        mock_db.get = AsyncMock(return_value=None)
+
+        resp = await client.delete(f"/api/dashboards/{uuid.uuid4()}")
+        assert resp.status_code == 404
+
+
+# ── Create widget ─────────────────────────────────────────────────
+
+class TestCreateWidget:
+    _WIDGET_PAYLOAD = {
+        "widget_type": "chart",
+        "title": "Temp Chart",
+        "config": {},
+        "layout": {},
+        "sort_order": 0,
+    }
+
+    async def test_dashboard_not_found_returns_404(self, client, mock_db):
+        mock_db.get = AsyncMock(return_value=None)
+
+        resp = await client.post(
+            f"/api/dashboards/{uuid.uuid4()}/widgets",
+            json=self._WIDGET_PAYLOAD,
+        )
+        assert resp.status_code == 404
+
+    async def test_sensor_not_found_returns_400(self, client, mock_db):
+        dashboard = _make_dashboard()
+        # First get: dashboard found; second get: sensor not found
+        mock_db.get = AsyncMock(side_effect=[dashboard, None])
+
+        payload = {**self._WIDGET_PAYLOAD, "sensor_id": str(SENSOR_ID)}
+        resp = await client.post(
+            f"/api/dashboards/{dashboard.id}/widgets",
+            json=payload,
+        )
+        assert resp.status_code == 400
+
+    async def test_valid_widget_returns_201(self, client, mock_db):
+        dashboard = _make_dashboard()
+        mock_db.get = AsyncMock(return_value=dashboard)
+
+        resp = await client.post(
+            f"/api/dashboards/{dashboard.id}/widgets",
+            json=self._WIDGET_PAYLOAD,
+        )
+        assert resp.status_code == 201
+        body = resp.json()
+        assert body["widget_type"] == "chart"
+        assert body["title"] == "Temp Chart"

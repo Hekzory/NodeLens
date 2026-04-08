@@ -15,13 +15,14 @@ dependencies = [
     "pydantic-settings>=2.13.1,<3",
     "ruamel.yaml~=0.19.1",
     "fastapi>=0.115.0,<1",
-    "uvicorn[standard]>=0.34.0,<1",
+    "uvicorn[standard]>=0.44.0,<1",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest",
+    "pytest>=9.0.3,<10",
     "pytest-asyncio",
+    "pytest-cov",
     "httpx",
     "ruff",
     "mypy",
@@ -30,6 +31,26 @@ dev = [
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["nodelens"]
+omit = [
+    "nodelens/__main__.py",
+    "nodelens/*/__main__.py",
+    "nodelens/*/*/__main__.py",
+    "nodelens/api/app.py",
+    "nodelens/api/middleware.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.",
+    "if TYPE_CHECKING:",
+    "@abstractmethod",
+]
+show_missing = false
+precision = 1
 
 [tool.hatch.build.targets.wheel]
 packages = ["nodelens"]

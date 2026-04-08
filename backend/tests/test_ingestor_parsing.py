@@ -1,21 +1,21 @@
 """Tests for ingestor event parsing — pure functions, no DB or Redis needed."""
 
-import pytest
 from datetime import datetime
 
-from nodelens.workers.ingestor.consumer import _parse_event
-from nodelens.workers.ingestor.registration import (
-    _parse_register_device,
-    _parse_register_plugin,
-    _parse_register_sensor,
-)
+import pytest
+
 from nodelens.schemas.events import (
     RegisterDeviceEvent,
     RegisterPluginEvent,
     RegisterSensorEvent,
     TelemetryEvent,
 )
-
+from nodelens.workers.ingestor.consumer import _parse_event
+from nodelens.workers.ingestor.registration import (
+    _parse_register_device,
+    _parse_register_plugin,
+    _parse_register_sensor,
+)
 from tests.conftest import DEVICE_ID_STR, PLUGIN_ID_STR, SENSOR_ID_STR
 
 _VALID_TELEMETRY = {

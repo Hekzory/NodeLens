@@ -9,7 +9,7 @@ from fastapi import FastAPI
 
 from nodelens.api.deps import get_db
 from nodelens.api.routes.telemetry import router
-from tests.conftest import SENSOR_ID, make_execute_result, make_mock_db
+from tests.conftest import DEVICE_ID, SENSOR_ID, make_execute_result, make_mock_db
 
 _app = FastAPI()
 _app.include_router(router)
@@ -122,3 +122,91 @@ class TestGetTelemetryLatest:
         assert resp.status_code == 200
         body = resp.json()
         assert body["value_numeric"] == 22.5
+
+
+# ── get_telemetry_series interval param ──────────────────────────
+
+class TestGetTelemetrySeriesInterval:
+    async def test_invalid_interval_returns_400(self, client, mock_db):
+        mock_db.get = AsyncMock(return_value=_mock_sensor())
+
+        resp = await client.get(f"/api/telemetry/{SENSOR_ID}?interval=bad")
+        assert resp.status_code == 400
+        assert "interval" in resp.json()["detail"].lower()
+
+    async def test_valid_interval_returns_200(self, client, mock_db):
+        mock_db.get = AsyncMock(return_value=_mock_sensor())
+        result = make_execute_result()
+        result.all.return_value = []
+        mock_db.execute = AsyncMock(return_value=result)
+
+        resp = await client.get(f"/api/telemetry/{SENSOR_ID}?interval=1h")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["count"] == 0
+        assert body["points"] == []
+
+
+# ── get_telemetry_summary ─────────────────────────────────────────
+
+class TestGetTelemetrySummary:
+    async def test_sensor_not_found_returns_404(self, client, mock_db):
+        mock_db.get = AsyncMock(return_value=None)
+
+        resp = await client.get(f"/api/telemetry/{SENSOR_ID}/summary")
+        assert resp.status_code == 404
+
+    async def test_returns_aggregates_for_sensor(self, client, mock_db):
+        mock_db.get = AsyncMock(return_value=_mock_sensor())
+
+        row = MagicMock()
+        row.count = 10
+        row.min = 18.0
+        row.max = 30.0
+        row.avg = 24.0
+        row.first_time = datetime(2024, 1, 1, 10, 0, 0, tzinfo=UTC)
+        row.last_time = datetime(2024, 1, 1, 11, 0, 0, tzinfo=UTC)
+        result = make_execute_result(one=row)
+        mock_db.execute = AsyncMock(return_value=result)
+
+        resp = await client.get(f"/api/telemetry/{SENSOR_ID}/summary")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["count"] == 10
+        assert body["min"] == 18.0
+        assert body["max"] == 30.0
+        assert body["avg"] == 24.0
+
+
+# ── get_device_latest_telemetry ───────────────────────────────────
+
+class TestGetDeviceLatestTelemetry:
+    async def test_device_not_found_returns_404(self, client, mock_db):
+        mock_db.execute = AsyncMock(return_value=make_execute_result(scalar_one_or_none=None))
+
+        resp = await client.get(f"/api/telemetry/device/{DEVICE_ID}")
+        assert resp.status_code == 404
+
+    async def test_device_with_sensors_returns_readings(self, client, mock_db):
+        sensor = _mock_sensor()
+        device = MagicMock()
+        device.id = DEVICE_ID
+        device.name = "My Device"
+        device.sensors = [sensor]
+
+        record = MagicMock()
+        record.value_numeric = 21.5
+        record.value_text = None
+        record.time = datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC)
+
+        mock_db.execute = AsyncMock(side_effect=[
+            make_execute_result(scalar_one_or_none=device),  # select device
+            make_execute_result(scalar_one_or_none=record),  # latest record for sensor
+        ])
+
+        resp = await client.get(f"/api/telemetry/device/{DEVICE_ID}")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["device_name"] == "My Device"
+        assert len(body["readings"]) == 1
+        assert body["readings"][0]["value_numeric"] == 21.5

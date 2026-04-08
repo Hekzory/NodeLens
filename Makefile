@@ -1,6 +1,9 @@
-.PHONY: up down down-v logs logs-ingestor logs-plugins logs-api ps restart restart-api seed api-docs curl-health test loadtest-up loadtest loadtest-down
+.PHONY: up down down-v logs logs-ingestor logs-plugins logs-api ps restart restart-api seed api-docs curl-health test pytest loadtest-up loadtest loadtest-down
 
 test:
+	uv run --project backend python scripts/test_report.py
+
+pytest:
 	cd backend && uv run pytest tests/ -v
 
 up:
