@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from nodelens import __version__
+from nodelens.api.middleware import ETagMiddleware
 from nodelens.api.routes.alerts import router as alerts_router
 from nodelens.api.routes.dashboards import router as dashboards_router
 from nodelens.api.routes.devices import router as devices_router
@@ -49,6 +50,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ── Middleware ──────────────────────────────────────────────────
+# ETag: returns 304 Not Modified when polled data hasn't changed,
+# saving bandwidth and client-side JSON parsing on every poll cycle.
+app.add_middleware(ETagMiddleware)
 
 # ── Routers ─────────────────────────────────────────────────────
 app.include_router(health_router)
