@@ -14,28 +14,55 @@ services:
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U nodelens -d nodelens"]
       interval: 2s
-      timeout: 5s
+      timeout: 3s
       retries: 10
+      start_period: 5s
+    # Tuning for small self-hosted deployment
+    command: >
+      postgres
+        -c shared_buffers=128MB
+        -c effective_cache_size=256MB
+        -c work_mem=4MB
+        -c wal_level=minimal
+        -c max_wal_senders=0
+        -c fsync=on
+        -c synchronous_commit=off
+        -c checkpoint_completion_target=0.9
+        -c max_connections=50
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+        reservations:
+          memory: 256m
     restart: unless-stopped
 
   redis:
-    image: redis:8.6-alpine
+    image: redis:8-alpine
     volumes:
       - ./deploy/redis/redis.conf:/usr/local/etc/redis/redis.conf
-    command: redis-server /usr/local/etc/redis/redis.conf
+    command: redis-server /usr/local/etc/redis/redis.conf --save "" --appendonly no
     ports:
       - "6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 2s
-      timeout: 5s
+      timeout: 3s
       retries: 10
+      start_period: 2s
+    deploy:
+      resources:
+        limits:
+          memory: 384m
+        reservations:
+          memory: 64m
     restart: unless-stopped
 
   ingestor:
     build:
       context: .
       dockerfile: deploy/ingestor.Dockerfile
+    init: true
     environment:
       DATABASE_URL: "postgresql+asyncpg://nodelens:nodelens@postgres:5432/nodelens"
       REDIS_URL: "redis://redis:6379/0"
@@ -45,12 +72,25 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import socket; socket.create_connection((\"localhost\", 1), timeout=1)' 2>/dev/null || kill -0 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          memory: 768m
+        reservations:
+          memory: 128m
     restart: unless-stopped
 
   plugins:
     build:
       context: .
       dockerfile: deploy/plugins.Dockerfile
+    init: true
     environment:
       DATABASE_URL: "postgresql+asyncpg://nodelens:nodelens@postgres:5432/nodelens"
       REDIS_URL: "redis://redis:6379/0"
@@ -63,12 +103,25 @@ services:
         condition: service_healthy
       ingestor:
         condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "kill -0 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          memory: 1536m
+        reservations:
+          memory: 128m
     restart: unless-stopped
 
   api:
     build:
       context: .
       dockerfile: deploy/api.Dockerfile
+    init: true
     environment:
       DATABASE_URL: "postgresql+asyncpg://nodelens:nodelens@postgres:5432/nodelens"
       REDIS_URL: "redis://redis:6379/0"
@@ -80,6 +133,18 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')\""]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+        reservations:
+          memory: 128m
     restart: unless-stopped
 
   frontend:
@@ -89,7 +154,20 @@ services:
     ports:
       - "80:80"
     depends_on:
-      - api
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO /dev/null http://localhost:80/ || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 3s
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+        reservations:
+          memory: 32m
     restart: unless-stopped
 
   seed:
@@ -103,6 +181,10 @@ services:
       postgres:
         condition: service_healthy
     profiles: ["seed"]
+    deploy:
+      resources:
+        limits:
+          memory: 512m
     restart: "no"
 
 volumes:
