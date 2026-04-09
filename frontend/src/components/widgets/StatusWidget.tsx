@@ -5,8 +5,13 @@ import type { Widget } from '@/types';
 
 const STALE_MS = 60_000;
 
+function isTimestampRecent(time: string | null | undefined, asOf: number): boolean {
+  if (!time || !asOf) return false;
+  return asOf - new Date(time).getTime() < STALE_MS;
+}
+
 export function StatusWidget({ widget }: { widget: Widget }) {
-  const { data } = useTelemetryLatest(widget.sensor_id);
+  const { data, dataUpdatedAt } = useTelemetryLatest(widget.sensor_id);
 
   if (!widget.sensor_id) {
     return (
@@ -16,7 +21,7 @@ export function StatusWidget({ widget }: { widget: Widget }) {
     );
   }
 
-  const isRecent = data?.time ? Date.now() - new Date(data.time).getTime() < STALE_MS : false;
+  const isRecent = isTimestampRecent(data?.time, dataUpdatedAt);
   const hasData = data?.value_numeric !== null && data?.value_numeric !== undefined;
   const ok = isRecent && hasData;
 

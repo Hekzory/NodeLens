@@ -8,9 +8,10 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useDashboards, useDashboard, useCreateDashboard, useUpdateDashboard, useDeleteDashboard } from '@/hooks/dashboards';
 import { WidgetGrid } from '@/components/dashboard/WidgetGrid';
 import { AddWidgetModal } from '@/components/dashboard/AddWidgetModal';
+import { EditWidgetModal } from '@/components/dashboard/EditWidgetModal';
 import { DashboardSettingsModal } from '@/components/dashboard/DashboardSettingsModal';
 import { TimeRangeProvider, TIME_PRESETS, useTimeRange } from '@/context/TimeRange';
-import type { DashboardCreate } from '@/types';
+import type { DashboardCreate, Widget } from '@/types';
 
 function TimeRangeSelector() {
   const { preset, setPreset, interval, setInterval, availableIntervals } = useTimeRange();
@@ -58,6 +59,7 @@ export function DashboardPage() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [editingDashboard, setEditingDashboard] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [editingWidget, setEditingWidget] = useState<Widget | null>(null);
 
   const handleCreate = (data: DashboardCreate) => {
     createDashboard(data, {
@@ -181,6 +183,7 @@ export function DashboardPage() {
           widgets={dashboard?.widgets ?? []}
           dashboardId={activeDashboardId}
           editMode={editMode}
+          onEditWidget={setEditingWidget}
         />
       )}
 
@@ -188,6 +191,13 @@ export function DashboardPage() {
         opened={addWidgetOpen}
         onClose={() => setAddWidgetOpen(false)}
         dashboardId={activeDashboardId}
+      />
+
+      <EditWidgetModal
+        opened={editingWidget !== null}
+        onClose={() => setEditingWidget(null)}
+        dashboardId={activeDashboardId}
+        widget={editingWidget}
       />
 
       <DashboardSettingsModal

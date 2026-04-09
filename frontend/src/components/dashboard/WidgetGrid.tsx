@@ -20,9 +20,10 @@ interface Props {
   widgets: Widget[];
   dashboardId: string;
   editMode?: boolean;
+  onEditWidget?: (widget: Widget) => void;
 }
 
-export function WidgetGrid({ widgets, dashboardId, editMode }: Props) {
+export function WidgetGrid({ widgets, dashboardId, editMode, onEditWidget }: Props) {
   const { mutate: updateWidget } = useUpdateWidget(dashboardId);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { width, containerRef } = useContainerWidth();
@@ -75,7 +76,7 @@ export function WidgetGrid({ widgets, dashboardId, editMode }: Props) {
       >
         {widgets.map((widget) => (
           <div key={widget.id}>
-            <WidgetRenderer widget={widget} dashboardId={dashboardId} editMode={editMode} />
+            <WidgetRenderer widget={widget} dashboardId={dashboardId} editMode={editMode} onEdit={onEditWidget} />
           </div>
         ))}
       </GridLayout>
