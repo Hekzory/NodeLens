@@ -6,10 +6,10 @@ export interface DeviceListParams {
   is_online?: boolean;
 }
 
-export const fetchDevices = (params?: DeviceListParams) =>
+export const fetchDevices = (params?: DeviceListParams, signal?: AbortSignal) =>
   apiFetch<Device[]>(`/api/devices${buildQueryString({
     plugin_id: params?.plugin_id,
     is_online: params?.is_online,
-  })}`);
-export const fetchDevice = (id: string) => apiFetch<DeviceDetail>(`/api/devices/${id}`);
-export const fetchDeviceSensors = (id: string) => apiFetch<Sensor[]>(`/api/devices/${id}/sensors`);
+  })}`, { signal });
+export const fetchDevice = (id: string, signal?: AbortSignal) => apiFetch<DeviceDetail>(`/api/devices/${id}`, { signal });
+export const fetchDeviceSensors = (id: string, signal?: AbortSignal) => apiFetch<Sensor[]>(`/api/devices/${id}/sensors`, { signal });

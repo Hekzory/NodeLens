@@ -15,7 +15,7 @@ class Sensor(Base):
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     device_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("devices.id"), nullable=False
+        UUID(as_uuid=True), ForeignKey("devices.id"), nullable=False, index=True
     )
     key: Mapped[str] = mapped_column(String, nullable=False)
     name: Mapped[str] = mapped_column(String, nullable=False)

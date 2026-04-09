@@ -96,14 +96,21 @@ class TestListDevices:
         assert resp.status_code == 200
         assert len(resp.json()) == 1
 
-    async def test_filter_by_is_online_excludes_offline(self, client, mock_db):
-        # Device with stale last_seen → offline
-        device = _make_device(is_active=True, last_seen=datetime(2020, 1, 1, tzinfo=UTC))
-        mock_db.execute = AsyncMock(return_value=make_execute_result(scalars_all=[device]))
+    async def test_filter_by_is_online_accepted(self, client, mock_db):
+        # SQL WHERE clause handles filtering; mock returns empty (DB filtered)
+        mock_db.execute = AsyncMock(return_value=make_execute_result(scalars_all=[]))
 
         resp = await client.get("/api/devices?is_online=true")
         assert resp.status_code == 200
-        assert resp.json() == []  # filtered out
+        assert resp.json() == []
+
+    async def test_filter_by_is_online_false_accepted(self, client, mock_db):
+        device = _make_device(is_active=True, last_seen=datetime(2020, 1, 1, tzinfo=UTC))
+        mock_db.execute = AsyncMock(return_value=make_execute_result(scalars_all=[device]))
+
+        resp = await client.get("/api/devices?is_online=false")
+        assert resp.status_code == 200
+        assert len(resp.json()) == 1
 
 
 # ── get_device ────────────────────────────────────────────────────

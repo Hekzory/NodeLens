@@ -16,14 +16,15 @@ export function DashboardSettingsModal({ opened, onClose, onSubmit, initial, isP
     initialValues: { name: '', description: '', is_default: false },
   });
 
+  const { setValues, reset } = form;
+
   useEffect(() => {
     if (initial) {
-      form.setValues({ name: initial.name, description: initial.description ?? '', is_default: initial.is_default });
+      setValues({ name: initial.name, description: initial.description ?? '', is_default: initial.is_default });
     } else {
-      form.reset();
+      reset();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initial, opened]);
+  }, [initial, opened, setValues, reset]);
 
   return (
     <Modal opened={opened} onClose={onClose} title={initial ? 'Edit Dashboard' : 'New Dashboard'} size="sm">

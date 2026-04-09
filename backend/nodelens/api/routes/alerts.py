@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from nodelens.api.deps import get_db
 from nodelens.db.models import AlertHistory, AlertRule, Sensor
@@ -139,6 +140,7 @@ async def list_alert_history(
     stmt = (
         select(AlertHistory)
         .join(AlertRule)
+        .options(selectinload(AlertHistory.rule))
         .order_by(desc(AlertHistory.triggered_at))
     )
 
@@ -161,9 +163,7 @@ async def list_alert_history(
     results = []
     for h in rows:
         data = AlertHistoryRead.model_validate(h)
-        # Eagerly load rule name
-        rule = await db.get(AlertRule, h.rule_id)
-        data.rule_name = rule.name if rule else None
+        data.rule_name = h.rule.name if h.rule else None
         results.append(data)
     return results
 
@@ -174,7 +174,12 @@ async def acknowledge_alert(
     db: AsyncSession = Depends(get_db),
 ):
     """Acknowledge a fired alert."""
-    history = await db.get(AlertHistory, history_id)
+    stmt = (
+        select(AlertHistory)
+        .where(AlertHistory.id == history_id)
+        .options(selectinload(AlertHistory.rule))
+    )
+    history = (await db.execute(stmt)).scalar_one_or_none()
     if history is None:
         raise HTTPException(status_code=404, detail="Alert history record not found")
     if history.acknowledged_at is not None:
@@ -184,7 +189,6 @@ async def acknowledge_alert(
     await db.commit()
     await db.refresh(history)
 
-    rule = await db.get(AlertRule, history.rule_id)
     data = AlertHistoryRead.model_validate(history)
-    data.rule_name = rule.name if rule else None
+    data.rule_name = history.rule.name if history.rule else None
     return data

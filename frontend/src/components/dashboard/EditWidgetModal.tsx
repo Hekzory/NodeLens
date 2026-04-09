@@ -29,9 +29,11 @@ export function EditWidgetModal({ opened, onClose, dashboardId, widget }: Props)
     initialValues: { title: '', unit: '', min: 0, max: 100, warning: '', critical: '' },
   });
 
+  const { setValues } = form;
+
   useEffect(() => {
     if (widget && opened) {
-      form.setValues({
+      setValues({
         title: widget.title,
         unit: (widget.config.unit as string) ?? '',
         min: (widget.config.min as number) ?? 0,
@@ -40,8 +42,7 @@ export function EditWidgetModal({ opened, onClose, dashboardId, widget }: Props)
         critical: (widget.config.critical as number) ?? '',
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [widget?.id, opened]);
+  }, [widget, opened, setValues]);
 
   if (!widget) return null;
 

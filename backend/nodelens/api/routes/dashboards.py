@@ -3,7 +3,7 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -220,7 +220,6 @@ async def _get_widget(
 
 async def _unset_default_dashboards(db: AsyncSession) -> None:
     """Clear is_default on all dashboards (before setting a new default)."""
-    stmt = select(Dashboard).where(Dashboard.is_default.is_(True))
-    defaults = (await db.execute(stmt)).scalars().all()
-    for d in defaults:
-        d.is_default = False
+    await db.execute(
+        update(Dashboard).where(Dashboard.is_default.is_(True)).values(is_default=False)
+    )

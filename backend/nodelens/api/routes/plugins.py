@@ -1,7 +1,7 @@
 """Plugin endpoints."""
 
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
@@ -9,11 +9,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from nodelens.api.deps import get_db
+from nodelens.config import ONLINE_THRESHOLD
 from nodelens.db.models import Device, Plugin
 from nodelens.schemas.devices import DeviceRead
 from nodelens.schemas.plugins import PluginRead, PluginUpdate
-
-ONLINE_THRESHOLD = timedelta(minutes=30)
 
 router = APIRouter(prefix="/api/plugins", tags=["plugins"])
 

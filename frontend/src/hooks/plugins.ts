@@ -2,15 +2,15 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchPlugins, fetchPlugin, updatePlugin, fetchPluginDevices } from '@/api/plugins';
 
 export const usePlugins = () =>
-  useQuery({ queryKey: ['plugins'], queryFn: fetchPlugins });
+  useQuery({ queryKey: ['plugins'], queryFn: ({ signal }) => fetchPlugins(signal) });
 
 export const usePlugin = (id: string) =>
-  useQuery({ queryKey: ['plugins', id], queryFn: () => fetchPlugin(id), enabled: !!id });
+  useQuery({ queryKey: ['plugins', id], queryFn: ({ signal }) => fetchPlugin(id, signal), enabled: !!id });
 
 export const usePluginDevices = (id: string) =>
   useQuery({
     queryKey: ['plugins', id, 'devices'],
-    queryFn: () => fetchPluginDevices(id),
+    queryFn: ({ signal }) => fetchPluginDevices(id, signal),
     enabled: !!id,
   });
 

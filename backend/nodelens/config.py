@@ -1,4 +1,8 @@
+from datetime import timedelta
+
 from pydantic_settings import BaseSettings
+
+ONLINE_THRESHOLD = timedelta(minutes=30)
 
 
 class Settings(BaseSettings):

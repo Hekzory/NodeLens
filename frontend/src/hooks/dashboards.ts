@@ -12,12 +12,12 @@ import {
 import type { DashboardCreate, DashboardUpdate, WidgetCreate, WidgetUpdate } from '@/types';
 
 export const useDashboards = () =>
-  useQuery({ queryKey: ['dashboards'], queryFn: fetchDashboards });
+  useQuery({ queryKey: ['dashboards'], queryFn: ({ signal }) => fetchDashboards(signal) });
 
 export const useDashboard = (id: string) =>
   useQuery({
     queryKey: ['dashboards', id],
-    queryFn: () => fetchDashboard(id),
+    queryFn: ({ signal }) => fetchDashboard(id, signal),
     enabled: !!id,
     refetchInterval: 10_000,
   });

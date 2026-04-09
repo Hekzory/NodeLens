@@ -42,12 +42,12 @@ class DashboardWidget(Base):
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     dashboard_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("dashboards.id", ondelete="CASCADE"), nullable=False
+        UUID(as_uuid=True), ForeignKey("dashboards.id", ondelete="CASCADE"), nullable=False, index=True
     )
     widget_type: Mapped[str] = mapped_column(String, nullable=False)  # chart, gauge, stat_card, status
     title: Mapped[str] = mapped_column(String, nullable=False)
     sensor_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("sensors.id"), nullable=True
+        UUID(as_uuid=True), ForeignKey("sensors.id"), nullable=True, index=True
     )
     config: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     layout: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)  # {x, y, w, h}

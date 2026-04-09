@@ -9,8 +9,8 @@ import type {
   WidgetUpdate,
 } from '@/types';
 
-export const fetchDashboards = () => apiFetch<Dashboard[]>('/api/dashboards');
-export const fetchDashboard = (id: string) => apiFetch<DashboardDetail>(`/api/dashboards/${id}`);
+export const fetchDashboards = (signal?: AbortSignal) => apiFetch<Dashboard[]>('/api/dashboards', { signal });
+export const fetchDashboard = (id: string, signal?: AbortSignal) => apiFetch<DashboardDetail>(`/api/dashboards/${id}`, { signal });
 export const createDashboard = (data: DashboardCreate) =>
   apiFetch<Dashboard>('/api/dashboards', { method: 'POST', body: JSON.stringify(data) });
 export const updateDashboard = (id: string, data: DashboardUpdate) =>

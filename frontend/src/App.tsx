@@ -1,9 +1,11 @@
+import { lazy } from 'react';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import { AppLayout } from '@/components/AppLayout';
-import { DashboardPage } from '@/pages/DashboardPage';
-import { DevicesPage } from '@/pages/DevicesPage';
-import { DeviceDetailPage } from '@/pages/DeviceDetailPage';
-import { PluginsPage } from '@/pages/PluginsPage';
+
+const DashboardPage = lazy(() => import('@/pages/DashboardPage').then(m => ({ default: m.DashboardPage })));
+const DevicesPage = lazy(() => import('@/pages/DevicesPage').then(m => ({ default: m.DevicesPage })));
+const DeviceDetailPage = lazy(() => import('@/pages/DeviceDetailPage').then(m => ({ default: m.DeviceDetailPage })));
+const PluginsPage = lazy(() => import('@/pages/PluginsPage').then(m => ({ default: m.PluginsPage })));
 
 const router = createBrowserRouter([
   {

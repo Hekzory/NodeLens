@@ -1,20 +1,19 @@
 """Device & sensor endpoints."""
 
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from nodelens.api.deps import get_db
-from nodelens.db.models import Device, Sensor
+from nodelens.config import ONLINE_THRESHOLD
+from nodelens.db.models import Device, Plugin, Sensor
 from nodelens.schemas.devices import DeviceDetail, DeviceRead, SensorBrief, SensorRead
 
 router = APIRouter(prefix="/api/devices", tags=["devices"])
-
-ONLINE_THRESHOLD = timedelta(minutes=30)
 
 
 def _compute_online(device: Device) -> bool:
@@ -42,14 +41,29 @@ async def list_devices(
     if plugin_id is not None:
         stmt = stmt.where(Device.plugin_id == plugin_id)
 
+    if is_online is not None:
+        cutoff = datetime.now(UTC) - ONLINE_THRESHOLD
+        stmt = stmt.join(Device.plugin)
+        if is_online:
+            stmt = stmt.where(
+                Plugin.is_active.is_(True),
+                Device.last_seen.is_not(None),
+                Device.last_seen >= cutoff,
+            )
+        else:
+            stmt = stmt.where(
+                or_(
+                    Plugin.is_active.is_(False),
+                    Device.last_seen.is_(None),
+                    Device.last_seen < cutoff,
+                )
+            )
+
     devices = (await db.execute(stmt)).scalars().all()
     results = []
     for device in devices:
-        online = _compute_online(device)
-        if is_online is not None and online != is_online:
-            continue
         data = DeviceRead.model_validate(device)
-        data.is_online = online
+        data.is_online = _compute_online(device)
         data.sensor_count = len(device.sensors)
         results.append(data)
     return results

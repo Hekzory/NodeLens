@@ -195,13 +195,14 @@ class TestGetDeviceLatestTelemetry:
         device.sensors = [sensor]
 
         record = MagicMock()
+        record.sensor_id = sensor.id
         record.value_numeric = 21.5
         record.value_text = None
         record.time = datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC)
 
         mock_db.execute = AsyncMock(side_effect=[
             make_execute_result(scalar_one_or_none=device),  # select device
-            make_execute_result(scalar_one_or_none=record),  # latest record for sensor
+            make_execute_result(scalars_all=[record]),        # DISTINCT ON latest records
         ])
 
         resp = await client.get(f"/api/telemetry/device/{DEVICE_ID}")

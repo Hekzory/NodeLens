@@ -154,21 +154,22 @@ async def _insert_rows(rows: list[dict]) -> int:
 
 async def _insert_rows_individually(rows: list[dict]) -> int:
     written = 0
-    for row in rows:
-        try:
-            async with async_session() as session, session.begin():
-                stmt = (
-                    pg_insert(TelemetryRecord)
-                    .values([row])
-                    .on_conflict_do_nothing(index_elements=["time", "sensor_id"])
+    async with async_session() as session, session.begin():
+        for row in rows:
+            try:
+                async with session.begin_nested():
+                    stmt = (
+                        pg_insert(TelemetryRecord)
+                        .values([row])
+                        .on_conflict_do_nothing(index_elements=["time", "sensor_id"])
+                    )
+                    result = await session.execute(stmt)
+                    written += result.rowcount  # type: ignore[operator]
+            except IntegrityError:
+                logger.debug(
+                    "Skipped row — integrity error for sensor_id %s.",
+                    row["sensor_id"],
                 )
-                result = await session.execute(stmt)
-                written += result.rowcount  # type: ignore[operator]
-        except IntegrityError:
-            logger.debug(
-                "Skipped row — integrity error for sensor_id %s.",
-                row["sensor_id"],
-            )
     return written
 
 

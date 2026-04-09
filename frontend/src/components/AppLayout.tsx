@@ -1,4 +1,5 @@
-import { AppShell, NavLink, Text, Burger, Group } from '@mantine/core';
+import { Suspense } from 'react';
+import { AppShell, Center, Loader, NavLink, Text, Burger, Group } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { IconLayoutDashboard, IconDevices, IconPlug } from '@tabler/icons-react';
 import { Outlet, NavLink as RouterNavLink, useLocation } from 'react-router-dom';
@@ -40,7 +41,9 @@ export function AppLayout() {
         ))}
       </AppShell.Navbar>
       <AppShell.Main>
-        <Outlet />
+        <Suspense fallback={<Center h="50vh"><Loader /></Center>}>
+          <Outlet />
+        </Suspense>
       </AppShell.Main>
     </AppShell>
   );

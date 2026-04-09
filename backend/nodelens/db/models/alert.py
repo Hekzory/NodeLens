@@ -19,7 +19,7 @@ class AlertRule(Base):
     name: Mapped[str] = mapped_column(String, nullable=False, unique=True)
     description: Mapped[str | None] = mapped_column(String, nullable=True)
     sensor_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("sensors.id"), nullable=False
+        UUID(as_uuid=True), ForeignKey("sensors.id"), nullable=False, index=True
     )
     # "instant" — single-value realtime check; "aggregated" — check over a time window
     rule_type: Mapped[str] = mapped_column(String, nullable=False, default="instant")
@@ -56,7 +56,7 @@ class AlertHistory(Base):
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     rule_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("alert_rules.id", ondelete="CASCADE"), nullable=False
+        UUID(as_uuid=True), ForeignKey("alert_rules.id", ondelete="CASCADE"), nullable=False, index=True
     )
     triggered_value: Mapped[float | None] = mapped_column(Float, nullable=True)
     message: Mapped[str] = mapped_column(String, nullable=False)

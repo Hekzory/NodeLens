@@ -38,29 +38,18 @@ class TestCreateDashboard:
         assert resp.json()["is_default"] is False
 
     async def test_creating_default_dashboard_unsets_existing_default(self, client, mock_db):
-        existing_default = MagicMock()
-        existing_default.is_default = True
-
-        # _unset_default_dashboards runs select(...).scalars().all() → [existing_default]
-        mock_db.execute = AsyncMock(return_value=make_execute_result(scalars_all=[existing_default]))
-
         resp = await client.post("/api/dashboards", json={"name": "New Default", "is_default": True})
         assert resp.status_code == 201
-        # Existing default should have been cleared
-        assert existing_default.is_default is False
+        # _unset_default_dashboards now issues a bulk UPDATE via execute
+        mock_db.execute.assert_called()
 
     async def test_creating_non_default_does_not_touch_existing_defaults(self, client, mock_db):
-        existing_default = MagicMock()
-        existing_default.is_default = True
-
         # execute should NOT be called for _unset_default_dashboards when is_default=False
-        execute_mock = AsyncMock(return_value=make_execute_result(scalars_all=[existing_default]))
-        mock_db.execute = execute_mock
+        mock_db.execute = AsyncMock(return_value=make_execute_result())
 
         resp = await client.post("/api/dashboards", json={"name": "Normal Dashboard", "is_default": False})
         assert resp.status_code == 201
-        # is_default on existing should remain untouched
-        assert existing_default.is_default is True
+        mock_db.execute.assert_not_called()
 
 
 class TestWidgetOwnershipValidation:

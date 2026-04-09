@@ -8,14 +8,14 @@ export interface TelemetryParams {
   interval?: string;
 }
 
-export const fetchTelemetrySeries = (sensorId: string, params?: TelemetryParams) =>
-  apiFetch<TelemetrySeries>(`/api/telemetry/${sensorId}${buildQueryString({ ...params })}`);
+export const fetchTelemetrySeries = (sensorId: string, params?: TelemetryParams, signal?: AbortSignal) =>
+  apiFetch<TelemetrySeries>(`/api/telemetry/${sensorId}${buildQueryString({ ...params })}`, { signal });
 
-export const fetchTelemetryLatest = (sensorId: string) =>
-  apiFetch<TelemetryLatest>(`/api/telemetry/${sensorId}/latest`);
+export const fetchTelemetryLatest = (sensorId: string, signal?: AbortSignal) =>
+  apiFetch<TelemetryLatest>(`/api/telemetry/${sensorId}/latest`, { signal });
 
-export const fetchTelemetrySummary = (sensorId: string, params?: TelemetryParams) =>
-  apiFetch<TelemetrySummary>(`/api/telemetry/${sensorId}/summary${buildQueryString({ ...params })}`);
+export const fetchTelemetrySummary = (sensorId: string, params?: TelemetryParams, signal?: AbortSignal) =>
+  apiFetch<TelemetrySummary>(`/api/telemetry/${sensorId}/summary${buildQueryString({ ...params })}`, { signal });
 
-export const fetchDeviceTelemetry = (deviceId: string) =>
-  apiFetch<DeviceTelemetry>(`/api/telemetry/device/${deviceId}`);
+export const fetchDeviceTelemetry = (deviceId: string, signal?: AbortSignal) =>
+  apiFetch<DeviceTelemetry>(`/api/telemetry/device/${deviceId}`, { signal });

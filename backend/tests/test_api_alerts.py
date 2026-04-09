@@ -131,7 +131,7 @@ class TestCreateAlertRuleValidation:
 
 class TestAcknowledgeAlert:
     async def test_missing_history_record_returns_404(self, client, mock_db):
-        mock_db.get = AsyncMock(return_value=None)
+        mock_db.execute = AsyncMock(return_value=make_execute_result(scalar_one_or_none=None))
         resp = await client.post(f"/api/alerts/history/{uuid.uuid4()}/acknowledge")
         assert resp.status_code == 404
 
@@ -139,10 +139,9 @@ class TestAcknowledgeAlert:
         mock_history = MagicMock()
         mock_history.acknowledged_at = datetime(2024, 1, 1, tzinfo=UTC)
 
-        async def get_side(model, pk):
-            return mock_history
-
-        mock_db.get = AsyncMock(side_effect=get_side)
+        mock_db.execute = AsyncMock(
+            return_value=make_execute_result(scalar_one_or_none=mock_history)
+        )
         resp = await client.post(f"/api/alerts/history/{uuid.uuid4()}/acknowledge")
         assert resp.status_code == 400
         assert "acknowledged" in resp.json()["detail"].lower()
@@ -151,6 +150,10 @@ class TestAcknowledgeAlert:
         history_id = uuid.uuid4()
         rule_id = uuid.uuid4()
 
+        mock_rule = MagicMock()
+        mock_rule.id = rule_id
+        mock_rule.name = "My Rule"
+
         mock_history = MagicMock()
         mock_history.id = history_id
         mock_history.rule_id = rule_id
@@ -158,20 +161,12 @@ class TestAcknowledgeAlert:
         mock_history.triggered_value = 42.0
         mock_history.message = "Threshold exceeded"
         mock_history.triggered_at = datetime(2024, 1, 1, tzinfo=UTC)
-        mock_history.rule_name = None  # Pydantic reads this via model_validate(history)
+        mock_history.rule_name = None
+        mock_history.rule = mock_rule
 
-        mock_rule = MagicMock()
-        mock_rule.name = "My Rule"
-
-        async def get_side(model, pk):
-            from nodelens.db.models.alert import AlertHistory, AlertRule
-            if model is AlertHistory:
-                return mock_history
-            if model is AlertRule:
-                return mock_rule
-            return None
-
-        mock_db.get = AsyncMock(side_effect=get_side)
+        mock_db.execute = AsyncMock(
+            return_value=make_execute_result(scalar_one_or_none=mock_history)
+        )
 
         resp = await client.post(f"/api/alerts/history/{history_id}/acknowledge")
         assert resp.status_code == 200
@@ -274,9 +269,9 @@ class TestListAlertHistory:
         history = _make_history()
         mock_rule = MagicMock()
         mock_rule.name = "My Rule"
+        history.rule = mock_rule
 
         mock_db.execute = AsyncMock(return_value=make_execute_result(scalars_all=[history]))
-        mock_db.get = AsyncMock(return_value=mock_rule)
 
         resp = await client.get("/api/alerts/history")
         assert resp.status_code == 200

@@ -15,7 +15,7 @@ class Device(Base):
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     plugin_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("plugins.id"), nullable=False
+        UUID(as_uuid=True), ForeignKey("plugins.id"), nullable=False, index=True
     )
     external_id: Mapped[str] = mapped_column(String, nullable=False)
     name: Mapped[str] = mapped_column(String, nullable=False)

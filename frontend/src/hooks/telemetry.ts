@@ -15,7 +15,7 @@ export const useTelemetrySeries = (
 ) =>
   useQuery({
     queryKey: ['telemetry', sensorId, 'series', params?.start, params?.end, params?.interval],
-    queryFn: () => fetchTelemetrySeries(sensorId!, params),
+    queryFn: ({ signal }) => fetchTelemetrySeries(sensorId!, params, signal),
     enabled: !!sensorId,
     refetchInterval: POLL,
   });
@@ -23,7 +23,7 @@ export const useTelemetrySeries = (
 export const useTelemetryLatest = (sensorId: string | null | undefined) =>
   useQuery({
     queryKey: ['telemetry', sensorId, 'latest'],
-    queryFn: () => fetchTelemetryLatest(sensorId!),
+    queryFn: ({ signal }) => fetchTelemetryLatest(sensorId!, signal),
     enabled: !!sensorId,
     refetchInterval: POLL,
   });
@@ -34,7 +34,7 @@ export const useTelemetrySummary = (
 ) =>
   useQuery({
     queryKey: ['telemetry', sensorId, 'summary', params?.start, params?.end],
-    queryFn: () => fetchTelemetrySummary(sensorId!, params),
+    queryFn: ({ signal }) => fetchTelemetrySummary(sensorId!, params, signal),
     enabled: !!sensorId,
     refetchInterval: POLL,
   });
@@ -42,7 +42,7 @@ export const useTelemetrySummary = (
 export const useDeviceTelemetry = (deviceId: string) =>
   useQuery({
     queryKey: ['telemetry', 'device', deviceId],
-    queryFn: () => fetchDeviceTelemetry(deviceId),
+    queryFn: ({ signal }) => fetchDeviceTelemetry(deviceId, signal),
     enabled: !!deviceId,
     refetchInterval: POLL,
   });

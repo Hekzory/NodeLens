@@ -1,47 +1,70 @@
 """Performance middleware for the NodeLens API."""
 
-import hashlib
-
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.requests import Request
-from starlette.responses import Response
+import zlib
 
 
-class ETagMiddleware(BaseHTTPMiddleware):
-    """ETag / conditional-GET support for polling efficiency.
+class ETagMiddleware:
+    """Pure ASGI ETag / conditional-GET middleware.
 
     The frontend polls every 10 s.  For endpoints whose data hasn't
     changed (device list, dashboard config, plugin list, …) this avoids
-    re-serialising and re-transferring the full body — the client gets a
-    304 Not Modified instead.
+    re-transferring the full body — the client gets a 304 Not Modified.
+
+    Uses raw ASGI instead of BaseHTTPMiddleware to avoid per-request
+    task overhead and streaming issues.  CRC32 replaces MD5 — faster
+    for the small JSON payloads typical of this API.
     """
 
-    async def dispatch(self, request: Request, call_next):
-        if request.method not in ("GET", "HEAD"):
-            return await call_next(request)
+    def __init__(self, app):
+        self.app = app
 
-        response: Response = await call_next(request)
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http" or scope.get("method", "") not in ("GET", "HEAD"):
+            await self.app(scope, receive, send)
+            return
 
-        if response.status_code != 200:
-            return response
+        status_code = 200
+        response_headers: list[tuple[bytes, bytes]] = []
+        body_parts: list[bytes] = []
 
-        body = b""
-        async for chunk in response.body_iterator:  # type: ignore[union-attr]
-            body += chunk if isinstance(chunk, bytes) else chunk.encode()
+        async def capture_send(message):
+            nonlocal status_code, response_headers
+            if message["type"] == "http.response.start":
+                status_code = message["status"]
+                response_headers = list(message.get("headers", []))
+            elif message["type"] == "http.response.body":
+                body_parts.append(message.get("body", b""))
 
-        etag = '"' + hashlib.md5(body).hexdigest() + '"'
-        response.headers["ETag"] = etag
-        response.headers.setdefault(
-            "Cache-Control", "private, max-age=0, must-revalidate"
-        )
+        await self.app(scope, receive, capture_send)
 
-        if_none_match = request.headers.get("if-none-match")
-        if if_none_match and if_none_match == etag:
-            return Response(status_code=304, headers={"ETag": etag})
+        if status_code != 200:
+            await send({"type": "http.response.start", "status": status_code, "headers": response_headers})
+            await send({"type": "http.response.body", "body": b"".join(body_parts)})
+            return
 
-        return Response(
-            content=body,
-            status_code=response.status_code,
-            headers=dict(response.headers),
-            media_type=response.media_type,
-        )
+        body = b"".join(body_parts)
+        etag = f'"{zlib.crc32(body):08x}"'
+
+        # Check If-None-Match
+        if_none_match = ""
+        for name, value in scope.get("headers", []):
+            if name == b"if-none-match":
+                if_none_match = value.decode()
+                break
+
+        if if_none_match == etag:
+            await send({
+                "type": "http.response.start",
+                "status": 304,
+                "headers": [(b"etag", etag.encode())],
+            })
+            await send({"type": "http.response.body", "body": b""})
+            return
+
+        response_headers.append((b"etag", etag.encode()))
+        header_names = {h[0].lower() for h in response_headers}
+        if b"cache-control" not in header_names:
+            response_headers.append((b"cache-control", b"private, max-age=0, must-revalidate"))
+
+        await send({"type": "http.response.start", "status": status_code, "headers": response_headers})
+        await send({"type": "http.response.body", "body": body})

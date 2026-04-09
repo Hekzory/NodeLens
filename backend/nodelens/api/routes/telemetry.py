@@ -203,15 +203,22 @@ async def get_device_latest_telemetry(
     if device is None:
         raise HTTPException(status_code=404, detail="Device not found")
 
-    readings: list[TelemetryLatest] = []
-    for sensor in device.sensors:
+    # Fetch latest telemetry for all sensors in one query using DISTINCT ON
+    sensor_ids = [s.id for s in device.sensors]
+    record_map: dict = {}
+    if sensor_ids:
         latest_stmt = (
             select(TelemetryRecord)
-            .where(TelemetryRecord.sensor_id == sensor.id)
-            .order_by(desc(TelemetryRecord.time))
-            .limit(1)
+            .where(TelemetryRecord.sensor_id.in_(sensor_ids))
+            .distinct(TelemetryRecord.sensor_id)
+            .order_by(TelemetryRecord.sensor_id, TelemetryRecord.time.desc())
         )
-        record = (await db.execute(latest_stmt)).scalar_one_or_none()
+        latest_records = (await db.execute(latest_stmt)).scalars().all()
+        record_map = {r.sensor_id: r for r in latest_records}
+
+    readings: list[TelemetryLatest] = []
+    for sensor in device.sensors:
+        record = record_map.get(sensor.id)
         readings.append(
             TelemetryLatest(
                 sensor_id=sensor.id,
