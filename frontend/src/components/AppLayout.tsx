@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 import { AppShell, Center, Loader, NavLink, Text, Burger, Group } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { IconLayoutDashboard, IconDevices, IconPlug } from '@tabler/icons-react';
+import { IconLayoutDashboard, IconDevices, IconPlug, IconActivity } from '@tabler/icons-react';
 import { Outlet, NavLink as RouterNavLink, useLocation } from 'react-router-dom';
 
 const navItems = [
@@ -23,8 +23,11 @@ export function AppLayout() {
       <AppShell.Header>
         <Group h="100%" px="md">
           <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
-          <Text fw={700} size="lg" c="blue">NodeLens</Text>
-          <Text size="xs" c="dimmed">IoT Telemetry Monitor</Text>
+          <Group gap={8}>
+            <IconActivity size={22} color="var(--mantine-primary-color-filled)" />
+            <Text fw={700} size="lg" c="var(--mantine-primary-color-filled)">NodeLens</Text>
+          </Group>
+          <Text size="xs" c="dimmed" visibleFrom="sm">IoT Telemetry Monitor</Text>
         </Group>
       </AppShell.Header>
       <AppShell.Navbar p="sm">
@@ -35,7 +38,7 @@ export function AppLayout() {
             to={to}
             label={label}
             leftSection={<Icon size={18} />}
-            active={to === '/' ? location.pathname === '/' : location.pathname.startsWith(to)}
+            active={to === '/' ? location.pathname === '/' || location.pathname.startsWith('/dashboards') : location.pathname.startsWith(to)}
             onClick={close}
           />
         ))}

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { Title, Table, Badge, Switch, Text, Collapse, Loader, Center, Stack, Box } from '@mantine/core';
 import { usePlugins, usePluginDevices, useTogglePlugin } from '@/hooks/plugins';
 
@@ -41,9 +41,8 @@ export function PluginsPage() {
         </Table.Thead>
         <Table.Tbody>
           {plugins?.map((plugin) => (
-            <>
+            <Fragment key={plugin.id}>
               <Table.Tr
-                key={plugin.id}
                 style={{ cursor: 'pointer' }}
                 onClick={() => setExpanded(expanded === plugin.id ? null : plugin.id)}
               >
@@ -58,14 +57,14 @@ export function PluginsPage() {
                   />
                 </Table.Td>
               </Table.Tr>
-              <Table.Tr key={`${plugin.id}-expand`}>
+              <Table.Tr>
                 <Table.Td colSpan={5} p={0}>
                   <Collapse expanded={expanded === plugin.id}>
                     <PluginDevices pluginId={plugin.id} />
                   </Collapse>
                 </Table.Td>
               </Table.Tr>
-            </>
+            </Fragment>
           ))}
         </Table.Tbody>
       </Table>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Stack, Title, Text, Badge, Group, Table, Collapse, Button, Loader, Center, Paper,
@@ -23,7 +23,7 @@ function SensorChart({ sensorId }: { sensorId: string }) {
       h={160}
       data={chartData}
       dataKey="time"
-      series={[{ name: 'value', color: 'blue.6' }]}
+      series={[{ name: 'value', color: 'cyan.6' }]}
       curveType="monotone"
       withDots={false}
       withLegend={false}
@@ -57,7 +57,7 @@ export function DeviceDetailPage() {
             <Title order={2}>{device.name}</Title>
             {device.location && <Text c="dimmed">{device.location}</Text>}
           </div>
-          <Badge color={device.is_online ? 'green' : 'gray'} size="lg" variant="dot">
+          <Badge color={device.is_online ? 'green' : 'red'} size="lg" variant="dot">
             {device.is_online ? 'Online' : 'Offline'}
           </Badge>
         </Group>
@@ -80,9 +80,8 @@ export function DeviceDetailPage() {
           {device.sensors.map((sensor) => {
             const latest = latestBysensor[sensor.id];
             return (
-              <>
+              <Fragment key={sensor.id}>
                 <Table.Tr
-                  key={sensor.id}
                   style={{ cursor: 'pointer' }}
                   onClick={() => setExpandedSensor(expandedSensor === sensor.id ? null : sensor.id)}
                 >
@@ -97,7 +96,7 @@ export function DeviceDetailPage() {
                     </Text>
                   </Table.Td>
                 </Table.Tr>
-                <Table.Tr key={`${sensor.id}-chart`}>
+                <Table.Tr>
                   <Table.Td colSpan={4} p={0}>
                     <Collapse expanded={expandedSensor === sensor.id}>
                       <Stack p="md">
@@ -106,7 +105,7 @@ export function DeviceDetailPage() {
                     </Collapse>
                   </Table.Td>
                 </Table.Tr>
-              </>
+              </Fragment>
             );
           })}
         </Table.Tbody>

@@ -93,7 +93,7 @@ export function ChartWidget({ widget }: { widget: Widget }) {
       h="100%"
       data={chartData}
       dataKey="_ts"
-      series={[{ name: 'value', color: 'blue.6' }]}
+      series={[{ name: 'value', color: 'cyan.6' }]}
       curveType="monotone"
       connectNulls={false}
       withDots={chartData.filter((p) => p.value !== null).length < 60}

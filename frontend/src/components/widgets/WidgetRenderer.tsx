@@ -50,7 +50,7 @@ export function WidgetRenderer({ widget, dashboardId, editMode, onEdit }: Props)
 
   return (
     <Paper h="100%" p="md" withBorder style={{ position: 'relative', overflow: 'hidden' }}>
-      <Text size="xs" c="dimmed" mb={4} pr={editMode ? 44 : 0} truncate>
+      <Text size="xs" c="dimmed" fw={500} mb={4} pr={editMode ? 44 : 0} truncate>
         {widget.title}
       </Text>
       {editMode && (
