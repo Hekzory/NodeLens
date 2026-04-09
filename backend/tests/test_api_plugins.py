@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, MagicMock
 import httpx
 import pytest
 from fastapi import FastAPI
+from sqlalchemy.exc import IntegrityError
 
 from nodelens.api.deps import get_db
 from nodelens.api.routes.plugins import router
@@ -49,7 +50,6 @@ def _make_device():
     d.external_id = "dev-001"
     d.name = "Test Device"
     d.location = None
-    d.is_online = False
     d.last_seen = None
     d.created_at = datetime(2024, 1, 1, tzinfo=UTC)
     d.sensors = []
@@ -120,6 +120,18 @@ class TestUpdatePlugin:
 
         resp = await client.patch(f"/api/plugins/{uuid.uuid4()}", json={"is_active": False})
         assert resp.status_code == 404
+
+    async def test_duplicate_module_name_returns_409(self, client, mock_db):
+        plugin = _make_plugin()
+        mock_db.get = AsyncMock(return_value=plugin)
+        mock_db.commit = AsyncMock(
+            side_effect=IntegrityError("duplicate", params=None, orig=Exception())
+        )
+        resp = await client.patch(
+            f"/api/plugins/{PLUGIN_ID}", json={"display_name": "Taken Name"}
+        )
+        assert resp.status_code == 409
+        assert "already exists" in resp.json()["detail"]
 
 
 class TestListPluginDevices:

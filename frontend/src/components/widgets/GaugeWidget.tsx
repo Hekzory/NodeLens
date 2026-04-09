@@ -12,6 +12,9 @@ function getGaugeColor(pct: number, config: Widget['config']): string {
 
 export function GaugeWidget({ widget }: { widget: Widget }) {
   const { data, isLoading } = useTelemetryLatest(widget.sensor_id);
+
+  if (!widget.sensor_id) return <Center h="100%"><Text c="dimmed" size="sm">No sensor configured</Text></Center>;
+
   const min = (widget.config.min as number) ?? 0;
   const max = (widget.config.max as number) ?? 100;
   const unit = (widget.config.unit as string) || '';

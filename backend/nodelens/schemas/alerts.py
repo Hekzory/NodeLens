@@ -12,8 +12,8 @@ from pydantic import BaseModel, ConfigDict, Field
 class AlertRuleCreate(BaseModel):
     """Request body to create an alert rule."""
 
-    name: str
-    description: str | None = None
+    name: str = Field(min_length=1, max_length=255)
+    description: str | None = Field(default=None, max_length=1000)
     sensor_id: uuid.UUID
     rule_type: Literal["instant", "aggregated"] = "instant"
     condition: Literal["gt", "lt", "gte", "lte", "eq", "neq", "no_data"]
@@ -28,8 +28,8 @@ class AlertRuleCreate(BaseModel):
 class AlertRuleUpdate(BaseModel):
     """Partial update for an alert rule."""
 
-    name: str | None = None
-    description: str | None = None
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    description: str | None = Field(default=None, max_length=1000)
     sensor_id: uuid.UUID | None = None
     rule_type: Literal["instant", "aggregated"] | None = None
     condition: Literal["gt", "lt", "gte", "lte", "eq", "neq", "no_data"] | None = None

@@ -76,10 +76,11 @@ export function AddWidgetModal({ opened, onClose, dashboardId }: Props) {
           </div>
           <Select
             label="Device"
-            placeholder="Pick a device"
+            placeholder={devices?.length ? 'Pick a device' : 'No devices available'}
             data={(devices ?? []).map((d) => ({ value: d.id, label: d.name }))}
             value={deviceId}
             onChange={handleDeviceChange}
+            disabled={!devices?.length}
             searchable
           />
           <Select

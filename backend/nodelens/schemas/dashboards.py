@@ -13,7 +13,7 @@ class WidgetCreate(BaseModel):
     """Request body to create a widget on a dashboard."""
 
     widget_type: Literal["chart", "gauge", "stat_card", "status"]
-    title: str
+    title: str = Field(min_length=1, max_length=255)
     sensor_id: uuid.UUID | None = None
     config: dict[str, Any] = Field(default_factory=dict)
     layout: dict[str, Any] = Field(default_factory=dict)
@@ -24,7 +24,7 @@ class WidgetUpdate(BaseModel):
     """Partial update for a widget."""
 
     widget_type: Literal["chart", "gauge", "stat_card", "status"] | None = None
-    title: str | None = None
+    title: str | None = Field(default=None, min_length=1, max_length=255)
     sensor_id: uuid.UUID | None = None
     config: dict[str, Any] | None = None
     layout: dict[str, Any] | None = None
@@ -52,16 +52,16 @@ class WidgetRead(BaseModel):
 class DashboardCreate(BaseModel):
     """Request body to create a dashboard."""
 
-    name: str
-    description: str | None = None
+    name: str = Field(min_length=1, max_length=255)
+    description: str | None = Field(default=None, max_length=1000)
     is_default: bool = False
 
 
 class DashboardUpdate(BaseModel):
     """Partial update for a dashboard."""
 
-    name: str | None = None
-    description: str | None = None
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    description: str | None = Field(default=None, max_length=1000)
     is_default: bool | None = None
 
 

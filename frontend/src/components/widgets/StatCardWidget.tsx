@@ -13,6 +13,9 @@ export function StatCardWidget({ widget }: { widget: Widget }) {
   const { start, end } = useTimeRange();
   const { data, isLoading } = useTelemetryLatest(widget.sensor_id);
   const { data: summary } = useTelemetrySummary(widget.sensor_id, { start, end });
+
+  if (!widget.sensor_id) return <Center h="100%"><Text c="dimmed" size="sm">No sensor configured</Text></Center>;
+
   const unit = (widget.config.unit as string) || '';
 
   if (isLoading) return <Center h="100%"><Loader size="sm" /></Center>;

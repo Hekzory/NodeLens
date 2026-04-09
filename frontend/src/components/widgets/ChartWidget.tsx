@@ -84,6 +84,7 @@ export function ChartWidget({ widget }: { widget: Widget }) {
     return buildChartData(data.points, startMs, endMs, gapThresholdMs);
   }, [data, startMs, endMs, gapThresholdMs]);
 
+  if (!widget.sensor_id) return <Center h="100%"><Text c="dimmed" size="sm">No sensor configured</Text></Center>;
   if (isLoading) return <Center h="100%"><Loader size="sm" /></Center>;
   if (!chartData.length) return <Center h="100%"><Text c="dimmed" size="sm">No data for this range</Text></Center>;
 

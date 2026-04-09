@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import desc, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -70,7 +71,11 @@ async def create_alert_rule(
 
     rule = AlertRule(**body.model_dump())
     db.add(rule)
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail="Alert rule with this name already exists")
     await db.refresh(rule)
     return AlertRuleRead.model_validate(rule)
 
@@ -106,7 +111,11 @@ async def update_alert_rule(
     for field, value in update_data.items():
         setattr(rule, field, value)
 
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail="Alert rule with this name already exists")
     await db.refresh(rule)
     return AlertRuleRead.model_validate(rule)
 

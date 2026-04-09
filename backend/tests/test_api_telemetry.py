@@ -156,6 +156,28 @@ class TestGetTelemetrySummary:
         resp = await client.get(f"/api/telemetry/{SENSOR_ID}/summary")
         assert resp.status_code == 404
 
+    async def test_no_data_returns_zero_count_and_nulls(self, client, mock_db):
+        """Aggregate queries always return one row even with no data — verify nulls."""
+        mock_db.get = AsyncMock(return_value=_mock_sensor())
+
+        row = MagicMock()
+        row.count = 0
+        row.min = None
+        row.max = None
+        row.avg = None
+        row.first_time = None
+        row.last_time = None
+        result = make_execute_result(one=row)
+        mock_db.execute = AsyncMock(return_value=result)
+
+        resp = await client.get(f"/api/telemetry/{SENSOR_ID}/summary")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["count"] == 0
+        assert body["min"] is None
+        assert body["max"] is None
+        assert body["avg"] is None
+
     async def test_returns_aggregates_for_sensor(self, client, mock_db):
         mock_db.get = AsyncMock(return_value=_mock_sensor())
 

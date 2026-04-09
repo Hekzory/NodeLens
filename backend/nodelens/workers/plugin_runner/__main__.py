@@ -28,6 +28,7 @@ logger = logging.getLogger("nodelens.plugin_runner")
 
 RESTART_DELAY_S = 3.0
 MONITOR_INTERVAL_S = 2.0
+_HEARTBEAT = Path("/tmp/.healthcheck")
 
 _REQUIRED_MANIFEST_FIELDS = ("id", "name", "type", "entry_point", "display_name", "version")
 
@@ -113,6 +114,7 @@ def main() -> None:
         logger.warning("No valid plugins found in %s — supervisor will idle.", base_dir)
         try:
             while True:
+                _HEARTBEAT.touch()
                 time.sleep(60)
         except KeyboardInterrupt:
             pass
@@ -144,6 +146,7 @@ def main() -> None:
         cycles_since_db_check = 0
         while True:
             time.sleep(MONITOR_INTERVAL_S)
+            _HEARTBEAT.touch()
             cycles_since_db_check += 1
 
             # Check DB for is_active changes every ~10 seconds

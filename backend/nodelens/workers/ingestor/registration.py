@@ -7,9 +7,13 @@ missed events are self-healing.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
+from pathlib import Path
 
+from redis.exceptions import ConnectionError as RedisConnectionError
+from redis.exceptions import TimeoutError as RedisTimeoutError
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from nodelens.constants import (
@@ -28,6 +32,8 @@ from nodelens.schemas.events import (
 )
 
 logger = logging.getLogger("nodelens.ingestor.registration")
+
+_HEARTBEAT = Path("/tmp/.healthcheck")
 
 
 # ── Parsers ─────────────────────────────────────────────────────
@@ -78,14 +84,22 @@ async def run_registration_consumer() -> None:
     )
 
     while True:
-        messages = await read_stream(
-            r,
-            group=REGISTRATION_CONSUMER_GROUP,
-            consumer=REGISTRATION_CONSUMER_NAME,
-            stream=REGISTRATION_STREAM,
-            count=50,
-            block=2000,
-        )
+        try:
+            messages = await read_stream(
+                r,
+                group=REGISTRATION_CONSUMER_GROUP,
+                consumer=REGISTRATION_CONSUMER_NAME,
+                stream=REGISTRATION_STREAM,
+                count=50,
+                block=2000,
+            )
+        except (RedisConnectionError, RedisTimeoutError, OSError) as exc:
+            logger.error("Redis connection error: %s. Retrying in 5s…", exc)
+            await asyncio.sleep(5)
+            continue
+
+        _HEARTBEAT.touch()
+
         if not messages:
             continue
 
@@ -154,7 +168,6 @@ async def _upsert_device(event: RegisterDeviceEvent) -> None:
         "external_id": event.external_id,
         "name": event.name,
         "location": location,
-        "is_online": True,
     }
     async with async_session() as session, session.begin():
         stmt = (
@@ -166,7 +179,6 @@ async def _upsert_device(event: RegisterDeviceEvent) -> None:
                     "external_id": values["external_id"],
                     "name": values["name"],
                     "location": values["location"],
-                    "is_online": True,
                 },
             )
         )

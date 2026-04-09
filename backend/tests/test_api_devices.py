@@ -37,7 +37,6 @@ def _make_device(is_active=True, last_seen=None):
     d.external_id = "dev-001"
     d.name = "Test Device"
     d.location = "Lab"
-    d.is_online = False
     d.last_seen = last_seen
     d.created_at = datetime(2024, 1, 1, tzinfo=UTC)
     d.sensors = []

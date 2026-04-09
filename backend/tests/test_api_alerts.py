@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, MagicMock
 import httpx
 import pytest
 from fastapi import FastAPI
+from sqlalchemy.exc import IntegrityError
 
 from nodelens.api.deps import get_db
 from nodelens.api.routes.alerts import router
@@ -126,6 +127,15 @@ class TestCreateAlertRuleValidation:
         resp = await client.post("/api/alerts/rules", json=payload)
         assert resp.status_code == 201
 
+    async def test_duplicate_name_returns_409(self, client, mock_db):
+        mock_db.get = AsyncMock(return_value=MagicMock())
+        mock_db.commit = AsyncMock(
+            side_effect=IntegrityError("duplicate", params=None, orig=Exception())
+        )
+        resp = await client.post("/api/alerts/rules", json=_BASE_RULE)
+        assert resp.status_code == 409
+        assert "already exists" in resp.json()["detail"]
+
 
 # ── Alert acknowledgment ─────────────────────────────────────────
 
@@ -238,6 +248,16 @@ class TestUpdateAlertRule:
         mock_db.get = AsyncMock(return_value=None)
         resp = await client.patch(f"/api/alerts/rules/{uuid.uuid4()}", json={"name": "X"})
         assert resp.status_code == 404
+
+    async def test_duplicate_name_returns_409(self, client, mock_db):
+        rule = _make_rule()
+        mock_db.get = AsyncMock(return_value=rule)
+        mock_db.commit = AsyncMock(
+            side_effect=IntegrityError("duplicate", params=None, orig=Exception())
+        )
+        resp = await client.patch(f"/api/alerts/rules/{rule.id}", json={"name": "Taken Name"})
+        assert resp.status_code == 409
+        assert "already exists" in resp.json()["detail"]
 
 
 # ── Delete alert rule ─────────────────────────────────────────────

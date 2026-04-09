@@ -1,7 +1,12 @@
 """Reads telemetry events from the Redis stream and writes them to TimescaleDB."""
 
+import asyncio
 import logging
 from datetime import datetime
+from pathlib import Path
+
+from redis.exceptions import ConnectionError as RedisConnectionError
+from redis.exceptions import TimeoutError as RedisTimeoutError
 
 from nodelens.constants import (
     INGEST_CONSUMER_GROUP,
@@ -14,6 +19,8 @@ from nodelens.schemas.events import TelemetryEvent
 from nodelens.workers.ingestor.writer import write_batch
 
 logger = logging.getLogger("nodelens.ingestor.consumer")
+
+_HEARTBEAT = Path("/tmp/.healthcheck")
 
 
 def _parse_event(fields: dict) -> TelemetryEvent:
@@ -35,14 +42,22 @@ async def run_consumer() -> None:
     )
 
     while True:
-        messages = await read_stream(
-            r,
-            group=INGEST_CONSUMER_GROUP,
-            consumer=INGEST_CONSUMER_NAME,
-            stream=TELEMETRY_STREAM,
-            count=50,
-            block=2000,
-        )
+        try:
+            messages = await read_stream(
+                r,
+                group=INGEST_CONSUMER_GROUP,
+                consumer=INGEST_CONSUMER_NAME,
+                stream=TELEMETRY_STREAM,
+                count=50,
+                block=2000,
+            )
+        except (RedisConnectionError, RedisTimeoutError, OSError) as exc:
+            logger.error("Redis connection error: %s. Retrying in 5s…", exc)
+            await asyncio.sleep(5)
+            continue
+
+        _HEARTBEAT.touch()
+
         if not messages:
             continue
 

@@ -28,7 +28,7 @@ class DeviceRead(BaseModel):
     external_id: str
     name: str
     location: str | None = None
-    is_online: bool
+    is_online: bool = False
     last_seen: datetime | None = None
     created_at: datetime
     sensor_count: int = 0
@@ -44,7 +44,7 @@ class DeviceDetail(BaseModel):
     external_id: str
     name: str
     location: str | None = None
-    is_online: bool
+    is_online: bool = False
     last_seen: datetime | None = None
     created_at: datetime
     sensors: list[SensorBrief] = []

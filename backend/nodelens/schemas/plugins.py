@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class PluginRead(BaseModel):
@@ -25,4 +25,4 @@ class PluginUpdate(BaseModel):
     """Partial update for a plugin (currently only toggle)."""
 
     is_active: bool | None = None
-    display_name: str | None = None
+    display_name: str | None = Field(default=None, min_length=1, max_length=255)
