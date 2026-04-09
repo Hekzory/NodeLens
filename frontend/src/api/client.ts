@@ -1,3 +1,12 @@
+export function buildQueryString(params: Record<string, string | number | boolean | undefined | null>): string {
+  const qs = new URLSearchParams();
+  for (const [key, val] of Object.entries(params)) {
+    if (val !== undefined && val !== null && val !== '') qs.set(key, String(val));
+  }
+  const s = qs.toString();
+  return s ? `?${s}` : '';
+}
+
 export async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
   const res = await fetch(url, {
     headers: { 'Content-Type': 'application/json', ...options?.headers },

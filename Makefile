@@ -1,10 +1,17 @@
-.PHONY: up down down-v logs logs-ingestor logs-plugins logs-api ps restart restart-api seed api-docs curl-health test pytest loadtest-up loadtest loadtest-down
+.PHONY: up down down-v logs logs-ingestor logs-plugins logs-api ps restart restart-api seed api-docs curl-health test pytest loadtest-up loadtest loadtest-down build
+
+# ── BuildKit / Compose settings ──────────────────────────────────
+export DOCKER_BUILDKIT       := 1
+export COMPOSE_DOCKER_CLI_BUILD := 1
 
 test:
 	uv run --project backend python scripts/test_report.py
 
 pytest:
 	cd backend && uv run pytest tests/ -v
+
+build:
+	docker compose build --parallel
 
 up:
 	docker compose up -d --build

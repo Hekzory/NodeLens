@@ -92,6 +92,13 @@ export interface DeviceTelemetry {
 // --- Dashboards ---
 export type WidgetType = 'chart' | 'gauge' | 'stat_card' | 'status';
 
+export const DEFAULT_WIDGET_SIZES: Record<WidgetType, { w: number; h: number }> = {
+  chart: { w: 6, h: 3 },
+  gauge: { w: 3, h: 3 },
+  stat_card: { w: 3, h: 2 },
+  status: { w: 2, h: 2 },
+};
+
 export interface WidgetLayout {
   x: number;
   y: number;

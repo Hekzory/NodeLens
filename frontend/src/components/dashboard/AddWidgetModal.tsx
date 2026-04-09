@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useDevices } from '@/hooks/devices';
 import { useDeviceSensors } from '@/hooks/devices';
 import { useCreateWidget } from '@/hooks/dashboards';
-import type { WidgetType } from '@/types';
+import { DEFAULT_WIDGET_SIZES, type WidgetType } from '@/types';
 
 interface Props {
   opened: boolean;
@@ -18,13 +18,6 @@ const WIDGET_TYPES: { label: string; value: WidgetType }[] = [
   { label: 'Stat Card', value: 'stat_card' },
   { label: 'Status', value: 'status' },
 ];
-
-const DEFAULT_SIZES: Record<WidgetType, { w: number; h: number }> = {
-  chart: { w: 6, h: 3 },
-  gauge: { w: 3, h: 3 },
-  stat_card: { w: 3, h: 2 },
-  status: { w: 2, h: 2 },
-};
 
 export function AddWidgetModal({ opened, onClose, dashboardId }: Props) {
   const [deviceId, setDeviceId] = useState<string | null>(null);
@@ -49,7 +42,7 @@ export function AddWidgetModal({ opened, onClose, dashboardId }: Props) {
   };
 
   const handleSubmit = form.onSubmit((values) => {
-    const size = DEFAULT_SIZES[values.widget_type];
+    const size = DEFAULT_WIDGET_SIZES[values.widget_type];
     createWidget(
       {
         widget_type: values.widget_type,

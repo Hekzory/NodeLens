@@ -4,17 +4,10 @@ import type { Layout } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 import { WidgetRenderer } from '@/components/widgets/WidgetRenderer';
 import { useUpdateWidget } from '@/hooks/dashboards';
-import type { Widget } from '@/types';
+import { DEFAULT_WIDGET_SIZES, type Widget } from '@/types';
 
 const COLS = 12;
 const MOBILE_BREAKPOINT = 640;
-
-const DEFAULT_SIZES: Record<string, { w: number; h: number }> = {
-  chart: { w: 6, h: 3 },
-  gauge: { w: 3, h: 3 },
-  stat_card: { w: 3, h: 2 },
-  status: { w: 2, h: 2 },
-};
 
 interface Props {
   widgets: Widget[];
@@ -34,8 +27,8 @@ export function WidgetGrid({ widgets, dashboardId, editMode, onEditWidget }: Pro
     i: w.id,
     x: w.layout?.x ?? 0,
     y: w.layout?.y ?? Infinity,
-    w: w.layout?.w ?? DEFAULT_SIZES[w.widget_type]?.w ?? 4,
-    h: w.layout?.h ?? DEFAULT_SIZES[w.widget_type]?.h ?? 3,
+    w: w.layout?.w ?? DEFAULT_WIDGET_SIZES[w.widget_type as keyof typeof DEFAULT_WIDGET_SIZES]?.w ?? 4,
+    h: w.layout?.h ?? DEFAULT_WIDGET_SIZES[w.widget_type as keyof typeof DEFAULT_WIDGET_SIZES]?.h ?? 3,
   })), [widgets]);
 
   // On mobile, stack all widgets full-width in their original y-order
