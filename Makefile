@@ -34,6 +34,9 @@ logs-plugins:
 logs-api:
 	docker compose logs -f api
 
+logs-frontend:
+	docker compose logs -f frontend
+
 ps:
 	docker compose ps
 
