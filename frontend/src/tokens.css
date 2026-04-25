@@ -1,0 +1,320 @@
+/* =============================================================================
+   NodeLens — Design tokens
+   -----------------------------------------------------------------------------
+   Source of truth for color, type, radius, surface, elevation. Mantine theme
+   (theme.ts) consumes these where it can; everything else references the CSS
+   variables directly. Dark-only product.
+   ============================================================================= */
+
+:root {
+  /* ===========================================================================
+     1. PRIMITIVES
+     =========================================================================== */
+
+  /* Cyan — NodeLens custom scale (hue ~209°, OKLCH-spaced).
+     `cyan-6` is the keystone: button fill, chart line, focus ring. */
+  --cyan-0:  #e7faff;
+  --cyan-1:  #c7f2ff;
+  --cyan-2:  #96e4fa;
+  --cyan-3:  #56d2ed;
+  --cyan-4:  #00c2de;
+  --cyan-5:  #00b3cd;
+  --cyan-6:  #00a2bb;
+  --cyan-7:  #00889d;
+  --cyan-8:  #006c7e;
+  --cyan-9:  #005362;
+
+  /* Dark scale (matches Mantine's `dark` exactly, anchored here for clarity). */
+  --dark-0: #c9c9c9;
+  --dark-1: #b8b8b8;
+  --dark-2: #828282;
+  --dark-3: #696969;
+  --dark-4: #424242;
+  --dark-5: #3b3b3b;
+  --dark-6: #2e2e2e;
+  --dark-7: #242424;
+  --dark-8: #1f1f1f;
+  --dark-9: #141414;
+
+  /* Brand purple — anchored to logo mark `#863bff`. Editorial accent only. */
+  --brand-100: #ece1ff;
+  --brand-200: #d6c1ff;
+  --brand-300: #b89bff;
+  --brand-500: #863bff;
+  --brand-600: #6f24e6;
+  --brand-700: #5a14c2;
+
+  /* Status (Mantine status hues, kept here so non-Mantine surfaces line up). */
+  --green-6:  #40c057;
+  --green-7:  #37b24d;
+  --yellow-6: #fab005;
+  --yellow-7: #f59f00;
+  --red-6:    #fa5252;
+  --red-7:    #f03e3e;
+  --teal-6:   #12b886;
+
+  /* ===========================================================================
+     2. SEMANTIC TOKENS
+     =========================================================================== */
+
+  /* Surface stack — Shell behind everything, Main = work area, Raised = Paper,
+     Overlay = hover layer. */
+  --surface-shell:    var(--dark-9);
+  --surface-main:     var(--dark-8);
+  --surface-raised:   var(--dark-7);
+  --surface-overlay:  var(--dark-6);
+  --surface-input:    var(--dark-7);
+  --surface-tooltip:  var(--dark-7);
+
+  /* Text on dark */
+  --fg-1: #f1f3f5;
+  --fg-2: var(--dark-0);
+  --fg-3: var(--dark-2);
+  --fg-4: var(--dark-3);
+  --fg-on-accent: #ffffff;
+
+  /* Borders & dividers */
+  --border-1:      var(--dark-4);
+  --border-2:      var(--dark-5);
+  --border-strong: var(--dark-3);
+
+  /* Accent (cyan) */
+  --accent:         var(--cyan-6);
+  --accent-hover:   var(--cyan-7);
+  --accent-active:  var(--cyan-8);
+  --accent-soft:    color-mix(in oklab, var(--cyan-6) 18%, transparent);
+  --accent-soft-hi: color-mix(in oklab, var(--cyan-6) 28%, transparent);
+
+  /* Brand (purple — used sparingly for the logo and one editorial moment) */
+  --brand:      var(--brand-500);
+  --brand-soft: color-mix(in oklab, var(--brand-500) 18%, transparent);
+
+  /* Status semantic */
+  --status-ok:      var(--green-6);
+  --status-warn:    var(--yellow-6);
+  --status-err:     var(--red-6);
+  --status-info:    var(--cyan-6);
+  --status-stale:   var(--yellow-6);
+  --status-offline: var(--red-6);
+
+  --status-ok-soft:   color-mix(in oklab, var(--green-6)  16%, transparent);
+  --status-warn-soft: color-mix(in oklab, var(--yellow-6) 16%, transparent);
+  --status-err-soft:  color-mix(in oklab, var(--red-6)    16%, transparent);
+  --status-info-soft: color-mix(in oklab, var(--cyan-6)   16%, transparent);
+
+  /* ===========================================================================
+     3. TYPOGRAPHY
+     =========================================================================== */
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+               "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas,
+               "Liberation Mono", monospace;
+
+  /* Type scale */
+  --fs-xs:  12px;  --lh-xs:  1.4;
+  --fs-sm:  14px;  --lh-sm:  1.55;
+  --fs-md:  16px;  --lh-md:  1.55;
+  --fs-lg:  18px;  --lh-lg:  1.55;
+  --fs-xl:  20px;  --lh-xl:  1.5;
+
+  --fs-h1:  34px;  --lh-h1:  1.3;
+  --fs-h2:  26px;  --lh-h2:  1.35;
+  --fs-h3:  22px;  --lh-h3:  1.4;
+  --fs-h4:  18px;  --lh-h4:  1.45;
+  --fs-h5:  16px;  --lh-h5:  1.5;
+  --fs-h6:  14px;  --lh-h6:  1.5;
+
+  --fw-regular:  400;
+  --fw-medium:   500;
+  --fw-semibold: 600;
+  --fw-bold:     700;
+
+  --tracking-tight:  -0.01em;
+  --tracking-normal: 0;
+  --tracking-wide:   0.02em;
+  --tracking-caps:   0.06em;
+
+  /* ===========================================================================
+     4. RADII / SHADOWS / SPACING
+     =========================================================================== */
+  --radius-xs:   2px;
+  --radius-sm:   4px;
+  --radius-md:   8px;   /* DEFAULT — Paper, Card, Modal */
+  --radius-lg:  16px;
+  --radius-xl:  32px;
+  --radius-pill: 9999px;
+
+  --radius-button: 6px; /* tighter than Paper, per design */
+  --radius-input:  6px;
+
+  --shadow-xs: 0 1px 3px rgba(0, 0, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.5), 0 10px 15px -5px rgba(0, 0, 0, 0.4),
+               0 7px 7px -5px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 1px 3px rgba(0, 0, 0, 0.5), 0 20px 25px -5px rgba(0, 0, 0, 0.4),
+               0 10px 10px -5px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 1px 3px rgba(0, 0, 0, 0.5), 0 28px 23px -7px rgba(0, 0, 0, 0.4),
+               0 12px 12px -7px rgba(0, 0, 0, 0.3);
+
+  --space-xs: 10px;
+  --space-sm: 12px;
+  --space-md: 16px;
+  --space-lg: 20px;
+  --space-xl: 32px;
+
+  --h-input-xs: 30px;
+  --h-input-sm: 36px;
+  --h-input-md: 42px;
+  --h-button-xs: 30px;
+  --h-shell-header: 50px;
+  --w-shell-navbar: 220px;
+}
+
+/* =============================================================================
+   5. BODY DEFAULTS (Inter font features for digit/letter forms)
+   ============================================================================= */
+
+html, body {
+  background: var(--surface-shell);
+  color: var(--fg-2);
+  font-family: var(--font-sans);
+  font-feature-settings: "cv11", "ss01";
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: var(--accent-soft-hi);
+  color: var(--fg-1);
+}
+
+/* Subtle dark-tuned scrollbar */
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: var(--dark-5);
+  border-radius: var(--radius-pill);
+  border: 2px solid var(--surface-shell);
+}
+*::-webkit-scrollbar-thumb:hover { background: var(--dark-4); }
+
+/* =============================================================================
+   6. UTILITIES — used by widgets and one-off labels
+   ============================================================================= */
+
+.nl-mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.nl-dim { color: var(--fg-3); }
+.nl-label {
+  font-size: var(--fs-xs);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--fg-3);
+  font-weight: var(--fw-medium);
+}
+
+/* =============================================================================
+   7. MANTINE COMPONENT TIES
+   Map Mantine's component CSS vars to our tokens so all surfaces line up
+   without scattering style overrides across components.
+   ============================================================================= */
+
+/* Buttons — tighter radius than Paper, per design */
+.mantine-Button-root { border-radius: var(--radius-button); }
+
+/* Inputs — tighter radius, dark-7 surface, cyan focus ring */
+.mantine-Input-input,
+.mantine-InputWrapper-root .mantine-Input-input {
+  border-radius: var(--radius-input);
+  background-color: var(--surface-input);
+  border-color: var(--border-1);
+}
+.mantine-Input-input:focus,
+.mantine-Input-input:focus-within {
+  border-color: var(--cyan-6);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+/* SegmentedControl — input-style chrome */
+.mantine-SegmentedControl-root {
+  background: var(--surface-input);
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-input);
+}
+.mantine-SegmentedControl-indicator {
+  background: var(--surface-overlay);
+  border-radius: 4px;
+}
+.mantine-SegmentedControl-label {
+  color: var(--fg-3);
+  font-weight: var(--fw-medium);
+}
+.mantine-SegmentedControl-label[data-active] { color: var(--fg-1); }
+
+/* Paper / Card — raised surface */
+.mantine-Paper-root {
+  background-color: var(--surface-raised);
+  border-color: var(--border-1);
+}
+
+/* Modal / Popover — raised surface, md elevation */
+.mantine-Modal-content,
+.mantine-Popover-dropdown {
+  background-color: var(--surface-raised);
+  border: 1px solid var(--border-1);
+  box-shadow: var(--shadow-md);
+}
+
+/* Table — header dim caps, body rows divided by border-2, name col fg-1 */
+.mantine-Table-table { font-size: var(--fs-sm); }
+.mantine-Table-th {
+  color: var(--fg-3);
+  font-weight: var(--fw-medium);
+  font-size: var(--fs-xs);
+  border-bottom-color: var(--border-1) !important;
+  padding: 10px 12px;
+}
+.mantine-Table-td {
+  color: var(--fg-2);
+  border-bottom-color: var(--border-2) !important;
+  padding: 10px 12px;
+}
+.mantine-Table-tr[data-hover]:hover .mantine-Table-td,
+.mantine-Table-tr:hover > .mantine-Table-td {
+  background-color: var(--surface-raised);
+}
+
+/* AppShell surface stack */
+.mantine-AppShell-main   { background-color: var(--surface-main); }
+.mantine-AppShell-header,
+.mantine-AppShell-navbar {
+  background-color: var(--surface-shell);
+  border-color: var(--border-1);
+}
+
+/* NavLink — accent on active */
+.mantine-NavLink-root[data-active] {
+  background-color: var(--accent-soft);
+  color: var(--cyan-3);
+}
+.mantine-NavLink-root[data-active] .mantine-NavLink-label { color: var(--cyan-3); }
+
+/* Tooltip — dark-7 surface with sm radius */
+.mantine-Tooltip-tooltip {
+  background-color: var(--surface-tooltip);
+  color: var(--fg-1);
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-sm);
+}
+
+/* Code — overlay surface, mono */
+code, kbd, samp {
+  font-family: var(--font-mono);
+  background: var(--surface-overlay);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-sm);
+  padding: 1px 6px;
+  color: var(--fg-1);
+  font-size: 0.92em;
+}
