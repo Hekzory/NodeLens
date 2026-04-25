@@ -102,10 +102,17 @@ export function TimeRangeProvider({ dashboardId, children }: { dashboardId: stri
     saveToDisk(dashboardId, preset, v);
   }, [dashboardId, preset]);
 
+  // Tick `nowMs` so the rolling window slides forward without user action.
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNowMs(Date.now()), 30_000);
+    return () => window.clearInterval(id);
+  }, []);
+
   const value = useMemo<TimeRange>(() => {
     const p = TIME_PRESETS.find((t) => t.value === preset) ?? TIME_PRESETS[1];
-    const end = new Date();
-    const start = new Date(end.getTime() - p.minutes * 60_000);
+    const end = new Date(nowMs);
+    const start = new Date(nowMs - p.minutes * 60_000);
 
     const available = intervalsForRange(p.minutes);
     // Reset interval if it's no longer valid for this range
@@ -127,7 +134,7 @@ export function TimeRangeProvider({ dashboardId, children }: { dashboardId: stri
       end: end.toISOString(),
       gapThresholdMs,
     };
-  }, [preset, interval, setPreset, setInterval]);
+  }, [preset, interval, setPreset, setInterval, nowMs]);
 
   return (
     <TimeRangeContext.Provider value={value}>

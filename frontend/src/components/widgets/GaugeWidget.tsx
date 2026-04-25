@@ -1,4 +1,4 @@
-import { RingProgress, Text, Center, Stack, Loader } from '@mantine/core';
+import { RingProgress, Text, Center, Stack, Skeleton } from '@mantine/core';
 import { useTelemetryLatest } from '@/hooks/telemetry';
 import type { Widget } from '@/types';
 
@@ -19,7 +19,7 @@ export function GaugeWidget({ widget }: { widget: Widget }) {
   const max = (widget.config.max as number) ?? 100;
   const unit = (widget.config.unit as string) || '';
 
-  if (isLoading) return <Center h="100%"><Loader size="sm" /></Center>;
+  if (isLoading) return <Skeleton h="100%" />;
 
   const value = data?.value_numeric ?? 0;
   const pct = Math.min(100, Math.max(0, ((value - min) / (max - min)) * 100));

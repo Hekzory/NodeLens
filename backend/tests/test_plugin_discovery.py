@@ -39,15 +39,17 @@ def _make_plugin(base_dir: Path, type_name: str, plugin_name: str, manifest: str
 class TestDiscoverPlugins:
     def test_valid_plugin_is_discovered(self, tmp_path):
         _make_plugin(tmp_path, "devices", "my_plugin", _FULL_MANIFEST)
-        found = discover_plugins(tmp_path)
+        found, manifests = discover_plugins(tmp_path)
         assert len(found) == 1
         dirs = list(found.values())
         assert dirs[0].name == "my_plugin"
+        assert set(manifests) == set(found)
+        assert next(iter(manifests.values()))["name"] == "test_plugin"
 
     def test_multiple_plugins_are_all_discovered(self, tmp_path):
         _make_plugin(tmp_path, "devices", "plugin_a", _FULL_MANIFEST)
         _make_plugin(tmp_path, "devices", "plugin_b", _FULL_MANIFEST_B)
-        found = discover_plugins(tmp_path)
+        found, _ = discover_plugins(tmp_path)
         names = {p.name for p in found.values()}
         assert names == {"plugin_a", "plugin_b"}
 
@@ -55,23 +57,23 @@ class TestDiscoverPlugins:
         # Create a dir with no manifest.yaml
         no_manifest_dir = tmp_path / "devices" / "bare_dir"
         no_manifest_dir.mkdir(parents=True)
-        found = discover_plugins(tmp_path)
+        found, _ = discover_plugins(tmp_path)
         assert found == {}
 
     def test_plugin_with_incomplete_manifest_is_skipped(self, tmp_path):
         _make_plugin(tmp_path, "devices", "bad_plugin", _INCOMPLETE_MANIFEST)
-        found = discover_plugins(tmp_path)
+        found, _ = discover_plugins(tmp_path)
         assert found == {}
 
     def test_nonexistent_base_dir_returns_empty_list(self, tmp_path):
         missing_dir = tmp_path / "does_not_exist"
-        found = discover_plugins(missing_dir)
+        found, _ = discover_plugins(missing_dir)
         assert found == {}
 
     def test_valid_plugin_mixed_with_invalid_only_valid_returned(self, tmp_path):
         _make_plugin(tmp_path, "devices", "good_plugin", _FULL_MANIFEST)
         _make_plugin(tmp_path, "devices", "bad_plugin", _INCOMPLETE_MANIFEST)
-        found = discover_plugins(tmp_path)
+        found, _ = discover_plugins(tmp_path)
         assert len(found) == 1
         dirs = list(found.values())
         assert dirs[0].name == "good_plugin"

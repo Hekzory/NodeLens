@@ -1,7 +1,7 @@
 import { Fragment, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  Stack, Title, Text, Badge, Group, Table, Collapse, Button, Loader, Center, Paper,
+  Stack, Title, Text, Badge, Group, Table, Collapse, Button, Loader, Center, Paper, Skeleton,
 } from '@mantine/core';
 import { IconArrowLeft } from '@tabler/icons-react';
 import { AreaChart } from '@mantine/charts';
@@ -10,7 +10,7 @@ import { useDeviceTelemetry, useTelemetrySeries } from '@/hooks/telemetry';
 
 function SensorChart({ sensorId }: { sensorId: string }) {
   const { data, isLoading } = useTelemetrySeries(sensorId);
-  if (isLoading) return <Loader size="xs" />;
+  if (isLoading) return <Skeleton h={160} />;
   if (!data?.points.length) return <Text size="sm" c="dimmed">No telemetry data</Text>;
 
   const chartData = data.points.map((p) => ({
