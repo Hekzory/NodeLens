@@ -50,7 +50,7 @@ export function WidgetRenderer({ widget, dashboardId, editMode, onEdit }: Props)
 
   return (
     <Paper h="100%" p="md" withBorder style={{ position: 'relative', overflow: 'hidden' }}>
-      <Text size="xs" c="dimmed" fw={500} mb={4} pr={editMode ? 44 : 0} truncate>
+      <Text size="sm" fw={600} mb={8} pr={editMode ? 44 : 0} truncate>
         {widget.title}
       </Text>
       {editMode && (
@@ -73,7 +73,7 @@ export function WidgetRenderer({ widget, dashboardId, editMode, onEdit }: Props)
           </ActionIcon>
         </Group>
       )}
-      <div style={{ height: 'calc(100% - 24px)' }}>
+      <div style={{ height: 'calc(100% - 30px)' }}>
         <WidgetErrorBoundary>
           {WidgetComponent
             ? <WidgetComponent widget={widget} />

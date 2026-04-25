@@ -62,7 +62,12 @@ export function DeviceDetailPage() {
           </Badge>
         </Group>
         {device.last_seen && (
-          <Text size="sm" c="dimmed" mt="xs">Last seen: {new Date(device.last_seen).toLocaleString()}</Text>
+          <Text size="sm" c="dimmed" mt="xs">
+            Last seen:{' '}
+            <Text component="span" c="dimmed" ff="var(--font-mono)" style={{ fontVariantNumeric: 'tabular-nums' }}>
+              {new Date(device.last_seen).toLocaleString()}
+            </Text>
+          </Text>
         )}
       </Paper>
 
@@ -87,11 +92,13 @@ export function DeviceDetailPage() {
                 >
                   <Table.Td fw={500}>{sensor.name}</Table.Td>
                   <Table.Td>
-                    <Text fw={600}>{latest?.value_numeric?.toFixed(2) ?? '—'}</Text>
+                    <Text fw={600} ff="var(--font-mono)" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                      {latest?.value_numeric?.toFixed(2) ?? '—'}
+                    </Text>
                   </Table.Td>
                   <Table.Td><Text c="dimmed">{sensor.unit ?? '—'}</Text></Table.Td>
                   <Table.Td>
-                    <Text size="sm" c="dimmed">
+                    <Text size="sm" c="dimmed" ff="var(--font-mono)" style={{ fontVariantNumeric: 'tabular-nums' }}>
                       {latest?.time ? new Date(latest.time).toLocaleTimeString() : '—'}
                     </Text>
                   </Table.Td>

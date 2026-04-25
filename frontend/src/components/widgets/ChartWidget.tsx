@@ -124,14 +124,27 @@ export function ChartWidget({ widget }: { widget: Widget }) {
           if (val === null || val === undefined) return null;
           return (
             <div style={{
-              background: 'var(--mantine-color-dark-7)',
-              border: '1px solid var(--mantine-color-dark-4)',
-              borderRadius: 4,
+              background: 'var(--surface-tooltip)',
+              border: '1px solid var(--border-1)',
+              borderRadius: 'var(--radius-sm)',
               padding: '6px 10px',
               fontSize: 12,
             }}>
-              <div style={{ color: 'var(--mantine-color-dimmed)' }}>{formatTick(p._ts, rangeMinutes, true)}</div>
-              <div style={{ fontWeight: 600 }}>{Number(val).toFixed(2)}</div>
+              <div style={{
+                color: 'var(--fg-3)',
+                fontFamily: 'var(--font-mono)',
+                fontVariantNumeric: 'tabular-nums',
+              }}>
+                {formatTick(p._ts, rangeMinutes, true)}
+              </div>
+              <div style={{
+                fontWeight: 600,
+                fontFamily: 'var(--font-mono)',
+                fontVariantNumeric: 'tabular-nums',
+                color: 'var(--fg-1)',
+              }}>
+                {Number(val).toFixed(2)}
+              </div>
             </div>
           );
         },

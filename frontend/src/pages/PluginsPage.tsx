@@ -12,7 +12,9 @@ function PluginDevices({ pluginId }: { pluginId: string }) {
         <Text key={d.id} size="sm">
           {d.name}
           {d.location && <Text component="span" c="dimmed"> — {d.location}</Text>}
-          <Badge size="xs" ml={8} color={d.is_online ? 'green' : 'gray'}>{d.is_online ? 'online' : 'offline'}</Badge>
+          <Badge size="xs" ml={8} color={d.is_online ? 'green' : 'gray'} variant="dot">
+            {d.is_online ? 'online' : 'offline'}
+          </Badge>
         </Text>
       ))}
     </Box>
@@ -53,8 +55,16 @@ export function PluginsPage() {
                 >
                   <Table.Td fw={500}>{plugin.display_name}</Table.Td>
                   <Table.Td><Badge variant="light" size="sm">{plugin.plugin_type}</Badge></Table.Td>
-                  <Table.Td><Text size="sm" c="dimmed">{plugin.version}</Text></Table.Td>
-                  <Table.Td>{plugin.device_count}</Table.Td>
+                  <Table.Td>
+                    <Text size="sm" c="dimmed" ff="var(--font-mono)" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                      {plugin.version}
+                    </Text>
+                  </Table.Td>
+                  <Table.Td>
+                    <Text ff="var(--font-mono)" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                      {plugin.device_count}
+                    </Text>
+                  </Table.Td>
                   <Table.Td onClick={(e) => e.stopPropagation()}>
                     <Switch
                       checked={plugin.is_active}

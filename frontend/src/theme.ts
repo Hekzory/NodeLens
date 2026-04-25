@@ -30,6 +30,23 @@ const brand: MantineColorsTuple = [
   '#48109a',
 ];
 
+// Dark — overrides Mantine's defaults so `var(--mantine-color-dark-N)`
+// resolves to the surface stack defined in tokens.css (`--dark-N`). Keeps the
+// 4-step surface ramp (shell→main→raised→overlay) coherent everywhere Mantine
+// reads its CSS vars (charts, modals, badges, etc.).
+const dark: MantineColorsTuple = [
+  '#c9c9c9', // 0 — primary text on dark
+  '#b8b8b8', // 1
+  '#828282', // 2 — dimmed text / labels
+  '#696969', // 3 — placeholder / strong border
+  '#424242', // 4 — default border
+  '#3b3b3b', // 5
+  '#2e2e2e', // 6 — surface overlay (hover layer)
+  '#242424', // 7 — surface raised (Paper / Modal body)
+  '#1f1f1f', // 8 — surface main (AppShell.Main)
+  '#141414', // 9 — surface shell (page bg)
+];
+
 export const theme = createTheme({
   primaryColor: 'cyan',
   primaryShade: 6,
@@ -82,5 +99,6 @@ export const theme = createTheme({
   colors: {
     cyan,
     brand,
+    dark,
   },
 });
