@@ -27,12 +27,17 @@ export function StatusWidget({ widget }: { widget: Widget }) {
 
   return (
     <Center h="100%">
-      <Stack align="center" gap={4}>
-        <ThemeIcon color={ok ? 'green' : isRecent ? 'yellow' : 'red'} variant="light" size="xl">
+      <Stack align="center" gap={6}>
+        <ThemeIcon
+          color={ok ? 'green' : isRecent ? 'yellow' : 'red'}
+          variant="light"
+          size="xl"
+          radius="md"
+        >
           {ok ? <IconCircleCheck /> : isRecent ? <IconCircleDashed /> : <IconCircleX />}
         </ThemeIcon>
-        <Text size="sm" fw={500}>{data?.sensor_name ?? '—'}</Text>
-        <Text size="xs" c="dimmed">{ok ? 'Online' : 'No data'}</Text>
+        <Text size="sm" fw={500} ta="center" lineClamp={1}>{data?.sensor_name ?? '—'}</Text>
+        <Text size="xs" c="dimmed">{ok ? 'Online' : isRecent ? 'Stale' : 'No data'}</Text>
       </Stack>
     </Center>
   );

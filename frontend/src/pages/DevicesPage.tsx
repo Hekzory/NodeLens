@@ -67,9 +67,13 @@ export function DevicesPage() {
                     {device.is_online ? 'Online' : 'Offline'}
                   </Badge>
                 </Table.Td>
-                <Table.Td>{device.sensor_count}</Table.Td>
                 <Table.Td>
-                  <Text size="sm" c="dimmed">
+                  <Text ff="var(--font-mono)" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                    {device.sensor_count}
+                  </Text>
+                </Table.Td>
+                <Table.Td>
+                  <Text size="sm" c="dimmed" ff="var(--font-mono)" style={{ fontVariantNumeric: 'tabular-nums' }}>
                     {device.last_seen ? new Date(device.last_seen).toLocaleString() : '—'}
                   </Text>
                 </Table.Td>

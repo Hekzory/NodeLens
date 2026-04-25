@@ -31,9 +31,14 @@ export function StatCardWidget({ widget }: { widget: Widget }) {
     : null;
 
   return (
-    <Stack gap={6} justify="center" h="100%">
+    <Stack gap={8} justify="center" h="100%">
       <Group gap={6} align="baseline" wrap="nowrap">
-        <Text size="xl" fw={700} lh={1}>
+        <Text
+          ff="var(--font-mono)"
+          fw={700}
+          lh={1}
+          style={{ fontSize: 28, fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.01em' }}
+        >
           {displayValue}
         </Text>
         {unit && <Text size="sm" c="dimmed" lh={1}>{unit}</Text>}
@@ -46,21 +51,29 @@ export function StatCardWidget({ widget }: { widget: Widget }) {
             ) : (
               <IconMinus size={14} color="var(--mantine-color-dimmed)" />
             )}
-            <Text size="xs" c="dimmed" lh={1}>
+            <Text size="xs" c="dimmed" lh={1} ff="var(--font-mono)" style={{ fontVariantNumeric: 'tabular-nums' }}>
               {Math.abs(delta).toFixed(1)}%
             </Text>
           </Group>
         )}
       </Group>
       {summary && (
-        <Group gap="sm">
-          <Text size="xs" c="dimmed">Min {summary.min?.toFixed(1) ?? '—'}</Text>
-          <Text size="xs" c="dimmed">Avg {summary.avg?.toFixed(1) ?? '—'}</Text>
-          <Text size="xs" c="dimmed">Max {summary.max?.toFixed(1) ?? '—'}</Text>
+        <Group gap="md">
+          <Text size="xs" c="dimmed">
+            Min <Text component="span" ff="var(--font-mono)" style={{ fontVariantNumeric: 'tabular-nums' }} c="dimmed">{summary.min?.toFixed(1) ?? '—'}</Text>
+          </Text>
+          <Text size="xs" c="dimmed">
+            Avg <Text component="span" ff="var(--font-mono)" style={{ fontVariantNumeric: 'tabular-nums' }} c="dimmed">{summary.avg?.toFixed(1) ?? '—'}</Text>
+          </Text>
+          <Text size="xs" c="dimmed">
+            Max <Text component="span" ff="var(--font-mono)" style={{ fontVariantNumeric: 'tabular-nums' }} c="dimmed">{summary.max?.toFixed(1) ?? '—'}</Text>
+          </Text>
         </Group>
       )}
       {data?.time && (
-        <Text size="xs" c="dimmed">{formatTime(data.time)}</Text>
+        <Text size="xs" c="dimmed" ff="var(--font-mono)" style={{ fontVariantNumeric: 'tabular-nums' }}>
+          {formatTime(data.time)}
+        </Text>
       )}
     </Stack>
   );
