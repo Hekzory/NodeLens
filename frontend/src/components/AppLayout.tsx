@@ -1,8 +1,9 @@
 import { Suspense } from 'react';
 import { AppShell, Center, Loader, NavLink, Text, Burger, Group } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { IconLayoutDashboard, IconDevices, IconPlug, IconActivity } from '@tabler/icons-react';
+import { IconLayoutDashboard, IconDevices, IconPlug } from '@tabler/icons-react';
 import { Outlet, NavLink as RouterNavLink, useLocation } from 'react-router-dom';
+import { Logo } from '@/components/Logo';
 
 const navItems = [
   { label: 'Dashboard', icon: IconLayoutDashboard, to: '/' },
@@ -23,10 +24,7 @@ export function AppLayout() {
       <AppShell.Header>
         <Group h="100%" px="md">
           <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
-          <Group gap={8}>
-            <IconActivity size={22} color="var(--mantine-primary-color-filled)" />
-            <Text fw={700} size="lg" c="var(--mantine-primary-color-filled)">NodeLens</Text>
-          </Group>
+          <Logo variant="lockup" size={28} />
           <Text size="xs" c="dimmed" visibleFrom="sm">IoT Telemetry Monitor</Text>
         </Group>
       </AppShell.Header>
