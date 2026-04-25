@@ -1,4 +1,4 @@
-import { Stack, Text, Group, Loader, Center } from '@mantine/core';
+import { Stack, Text, Group, Skeleton, Center } from '@mantine/core';
 import { IconTrendingUp, IconTrendingDown, IconMinus } from '@tabler/icons-react';
 import { useTelemetryLatest, useTelemetrySummary } from '@/hooks/telemetry';
 import { useTimeRange } from '@/context/TimeRange';
@@ -18,16 +18,16 @@ export function StatCardWidget({ widget }: { widget: Widget }) {
 
   const unit = (widget.config.unit as string) || '';
 
-  if (isLoading) return <Center h="100%"><Loader size="sm" /></Center>;
+  if (isLoading) return <Skeleton h="100%" />;
 
-  const value = data?.value_numeric;
-  const hasValue = value !== null && value !== undefined;
-  const displayValue = hasValue ? value.toFixed(2) : '—';
+  const numeric = data?.value_numeric;
+  const text = data?.value_text;
+  const hasNumeric = numeric != null;
+  const displayValue = hasNumeric ? numeric.toFixed(2) : (text ?? '—');
 
-  // Trend relative to average
   const avg = summary?.avg;
-  const delta = hasValue && avg != null && avg !== 0
-    ? ((value - avg) / Math.abs(avg)) * 100
+  const delta = hasNumeric && avg != null && avg !== 0
+    ? ((numeric - avg) / Math.abs(avg)) * 100
     : null;
 
   return (

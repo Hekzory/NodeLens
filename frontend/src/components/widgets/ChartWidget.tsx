@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { AreaChart } from '@mantine/charts';
-import { Text, Center, Loader } from '@mantine/core';
+import { Text, Center, Skeleton } from '@mantine/core';
 import { useTelemetrySeries } from '@/hooks/telemetry';
 import { useTimeRange } from '@/context/TimeRange';
 import type { Widget, TelemetryPoint } from '@/types';
@@ -11,13 +11,16 @@ interface ChartPoint {
 }
 
 /** Format tick label based on range duration. */
-function formatTick(ts: number, rangeMinutes: number): string {
+function formatTick(ts: number, rangeMinutes: number, withSeconds = false): string {
   const d = new Date(ts);
+  const timeOpts: Intl.DateTimeFormatOptions = withSeconds
+    ? { hour: '2-digit', minute: '2-digit', second: '2-digit' }
+    : { hour: '2-digit', minute: '2-digit' };
   if (rangeMinutes <= 360) {
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return d.toLocaleTimeString([], timeOpts);
   }
   return d.toLocaleDateString([], { month: 'numeric', day: 'numeric' }) +
-    ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    ' ' + d.toLocaleTimeString([], timeOpts);
 }
 
 /**
@@ -85,7 +88,7 @@ export function ChartWidget({ widget }: { widget: Widget }) {
   }, [data, startMs, endMs, gapThresholdMs]);
 
   if (!widget.sensor_id) return <Center h="100%"><Text c="dimmed" size="sm">No sensor configured</Text></Center>;
-  if (isLoading) return <Center h="100%"><Loader size="sm" /></Center>;
+  if (isLoading) return <Skeleton h="100%" />;
   if (!chartData.length) return <Center h="100%"><Text c="dimmed" size="sm">No data for this range</Text></Center>;
 
   return (
@@ -127,7 +130,7 @@ export function ChartWidget({ widget }: { widget: Widget }) {
               padding: '6px 10px',
               fontSize: 12,
             }}>
-              <div style={{ color: 'var(--mantine-color-dimmed)' }}>{new Date(p._ts).toLocaleString()}</div>
+              <div style={{ color: 'var(--mantine-color-dimmed)' }}>{formatTick(p._ts, rangeMinutes, true)}</div>
               <div style={{ fontWeight: 600 }}>{Number(val).toFixed(2)}</div>
             </div>
           );

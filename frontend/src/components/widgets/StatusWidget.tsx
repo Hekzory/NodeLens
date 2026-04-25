@@ -22,7 +22,7 @@ export function StatusWidget({ widget }: { widget: Widget }) {
   }
 
   const isRecent = isTimestampRecent(data?.time, dataUpdatedAt);
-  const hasData = data?.value_numeric !== null && data?.value_numeric !== undefined;
+  const hasData = data?.value_numeric != null || data?.value_text != null;
   const ok = isRecent && hasData;
 
   return (

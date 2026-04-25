@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Title, Table, Badge, Text, Stack, Group, Select, SegmentedControl, Loader, Center } from '@mantine/core';
+import { Title, Table, Badge, Text, Stack, Group, Select, SegmentedControl, Skeleton } from '@mantine/core';
 import { useDevices } from '@/hooks/devices';
 import { usePlugins } from '@/hooks/plugins';
 
@@ -15,8 +15,6 @@ export function DevicesPage() {
     plugin_id: pluginFilter ?? undefined,
     is_online: isOnline,
   });
-
-  if (isLoading) return <Center h="40vh"><Loader /></Center>;
 
   return (
     <Stack>
@@ -49,28 +47,35 @@ export function DevicesPage() {
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
-          {devices?.map((device) => (
-            <Table.Tr
-              key={device.id}
-              style={{ cursor: 'pointer' }}
-              onClick={() => navigate(`/devices/${device.id}`)}
-            >
-              <Table.Td fw={500}>{device.name}</Table.Td>
-              <Table.Td><Text size="sm" c="dimmed">{device.location ?? '—'}</Text></Table.Td>
-              <Table.Td>
-                <Badge color={device.is_online ? 'green' : 'red'} variant="dot">
-                  {device.is_online ? 'Online' : 'Offline'}
-                </Badge>
-              </Table.Td>
-              <Table.Td>{device.sensor_count}</Table.Td>
-              <Table.Td>
-                <Text size="sm" c="dimmed">
-                  {device.last_seen ? new Date(device.last_seen).toLocaleString() : '—'}
-                </Text>
-              </Table.Td>
-            </Table.Tr>
-          ))}
-          {!devices?.length && (
+          {isLoading ? (
+            Array.from({ length: 5 }).map((_, i) => (
+              <Table.Tr key={`skel-${i}`}>
+                <Table.Td colSpan={5}><Skeleton h={20} /></Table.Td>
+              </Table.Tr>
+            ))
+          ) : devices?.length ? (
+            devices.map((device) => (
+              <Table.Tr
+                key={device.id}
+                style={{ cursor: 'pointer' }}
+                onClick={() => navigate(`/devices/${device.id}`)}
+              >
+                <Table.Td fw={500}>{device.name}</Table.Td>
+                <Table.Td><Text size="sm" c="dimmed">{device.location ?? '—'}</Text></Table.Td>
+                <Table.Td>
+                  <Badge color={device.is_online ? 'green' : 'red'} variant="dot">
+                    {device.is_online ? 'Online' : 'Offline'}
+                  </Badge>
+                </Table.Td>
+                <Table.Td>{device.sensor_count}</Table.Td>
+                <Table.Td>
+                  <Text size="sm" c="dimmed">
+                    {device.last_seen ? new Date(device.last_seen).toLocaleString() : '—'}
+                  </Text>
+                </Table.Td>
+              </Table.Tr>
+            ))
+          ) : (
             <Table.Tr>
               <Table.Td colSpan={5}><Text c="dimmed" ta="center" py="md">No devices found</Text></Table.Td>
             </Table.Tr>

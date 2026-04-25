@@ -1,10 +1,10 @@
 import { Fragment, useState } from 'react';
-import { Title, Table, Badge, Switch, Text, Collapse, Loader, Center, Stack, Box } from '@mantine/core';
+import { Title, Table, Badge, Switch, Text, Collapse, Skeleton, Stack, Box } from '@mantine/core';
 import { usePlugins, usePluginDevices, useTogglePlugin } from '@/hooks/plugins';
 
 function PluginDevices({ pluginId }: { pluginId: string }) {
   const { data: devices, isLoading } = usePluginDevices(pluginId);
-  if (isLoading) return <Loader size="xs" />;
+  if (isLoading) return <Box p="xs"><Skeleton h={16} w={200} /></Box>;
   if (!devices?.length) return <Text size="sm" c="dimmed" p="xs">No devices</Text>;
   return (
     <Box p="xs">
@@ -24,8 +24,6 @@ export function PluginsPage() {
   const { mutate: toggle } = useTogglePlugin();
   const [expanded, setExpanded] = useState<string | null>(null);
 
-  if (isLoading) return <Center h="40vh"><Loader /></Center>;
-
   return (
     <Stack>
       <Title order={2}>Plugins</Title>
@@ -40,32 +38,44 @@ export function PluginsPage() {
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
-          {plugins?.map((plugin) => (
-            <Fragment key={plugin.id}>
-              <Table.Tr
-                style={{ cursor: 'pointer' }}
-                onClick={() => setExpanded(expanded === plugin.id ? null : plugin.id)}
-              >
-                <Table.Td fw={500}>{plugin.display_name}</Table.Td>
-                <Table.Td><Badge variant="light" size="sm">{plugin.plugin_type}</Badge></Table.Td>
-                <Table.Td><Text size="sm" c="dimmed">{plugin.version}</Text></Table.Td>
-                <Table.Td>{plugin.device_count}</Table.Td>
-                <Table.Td onClick={(e) => e.stopPropagation()}>
-                  <Switch
-                    checked={plugin.is_active}
-                    onChange={(e) => toggle({ id: plugin.id, isActive: e.currentTarget.checked })}
-                  />
-                </Table.Td>
+          {isLoading ? (
+            Array.from({ length: 3 }).map((_, i) => (
+              <Table.Tr key={`skel-${i}`}>
+                <Table.Td colSpan={5}><Skeleton h={20} /></Table.Td>
               </Table.Tr>
-              <Table.Tr>
-                <Table.Td colSpan={5} p={0}>
-                  <Collapse expanded={expanded === plugin.id}>
-                    <PluginDevices pluginId={plugin.id} />
-                  </Collapse>
-                </Table.Td>
-              </Table.Tr>
-            </Fragment>
-          ))}
+            ))
+          ) : plugins?.length ? (
+            plugins.map((plugin) => (
+              <Fragment key={plugin.id}>
+                <Table.Tr
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => setExpanded(expanded === plugin.id ? null : plugin.id)}
+                >
+                  <Table.Td fw={500}>{plugin.display_name}</Table.Td>
+                  <Table.Td><Badge variant="light" size="sm">{plugin.plugin_type}</Badge></Table.Td>
+                  <Table.Td><Text size="sm" c="dimmed">{plugin.version}</Text></Table.Td>
+                  <Table.Td>{plugin.device_count}</Table.Td>
+                  <Table.Td onClick={(e) => e.stopPropagation()}>
+                    <Switch
+                      checked={plugin.is_active}
+                      onChange={(e) => toggle({ id: plugin.id, isActive: e.currentTarget.checked })}
+                    />
+                  </Table.Td>
+                </Table.Tr>
+                <Table.Tr>
+                  <Table.Td colSpan={5} p={0}>
+                    <Collapse expanded={expanded === plugin.id}>
+                      <PluginDevices pluginId={plugin.id} />
+                    </Collapse>
+                  </Table.Td>
+                </Table.Tr>
+              </Fragment>
+            ))
+          ) : (
+            <Table.Tr>
+              <Table.Td colSpan={5}><Text c="dimmed" ta="center" py="md">No plugins found</Text></Table.Td>
+            </Table.Tr>
+          )}
         </Table.Tbody>
       </Table>
     </Stack>

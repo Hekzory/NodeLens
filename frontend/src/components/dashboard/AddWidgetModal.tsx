@@ -26,29 +26,37 @@ export function AddWidgetModal({ opened, onClose, dashboardId }: Props) {
   const { mutate: createWidget, isPending } = useCreateWidget(dashboardId);
 
   const form = useForm({
-    initialValues: { widget_type: 'chart' as WidgetType, sensor_id: '', title: '' },
+    initialValues: { widget_type: 'chart' as WidgetType, sensor_id: '', title: '', unit: '' },
   });
 
   const handleDeviceChange = (val: string | null) => {
     setDeviceId(val);
     form.setFieldValue('sensor_id', '');
     form.setFieldValue('title', '');
+    form.setFieldValue('unit', '');
   };
 
   const handleSensorChange = (val: string | null) => {
     form.setFieldValue('sensor_id', val ?? '');
     const sensor = sensors?.find((s) => s.id === val);
-    if (sensor) form.setFieldValue('title', sensor.name);
+    if (sensor) {
+      form.setFieldValue('title', sensor.name);
+      form.setFieldValue('unit', sensor.unit ?? '');
+    }
   };
 
   const handleSubmit = form.onSubmit((values) => {
     const size = DEFAULT_WIDGET_SIZES[values.widget_type];
+    const config: Record<string, unknown> = {};
+    if ((values.widget_type === 'gauge' || values.widget_type === 'stat_card') && values.unit) {
+      config.unit = values.unit;
+    }
     createWidget(
       {
         widget_type: values.widget_type,
         title: values.title || 'Widget',
         sensor_id: values.sensor_id || undefined,
-        config: {},
+        config,
         layout: { x: 0, y: Infinity, ...size },
       },
       {

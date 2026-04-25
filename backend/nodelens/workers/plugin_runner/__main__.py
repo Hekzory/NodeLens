@@ -18,7 +18,7 @@ import time
 from pathlib import Path
 
 from nodelens.config import settings
-from nodelens.workers.plugin_runner.db import get_active_plugin_ids
+from nodelens.workers.plugin_runner.db import ensure_plugin_rows, get_active_plugin_ids
 
 logging.basicConfig(
     level=settings.LOG_LEVEL,
@@ -33,14 +33,18 @@ _HEARTBEAT = Path("/tmp/.healthcheck")
 _REQUIRED_MANIFEST_FIELDS = ("id", "name", "type", "entry_point", "display_name", "version")
 
 
-def discover_plugins(base_dir: Path) -> dict[str, Path]:
-    """Return ``{plugin_id: plugin_dir}`` for directories with a valid ``manifest.yaml``."""
+def discover_plugins(base_dir: Path) -> tuple[dict[str, Path], dict[str, dict]]:
+    """Scan ``base_dir`` for plugins with a valid ``manifest.yaml``.
+
+    Returns a tuple of ``(plugin_dirs_by_id, manifests_by_id)``.
+    """
     from nodelens.workers.plugin_runner.loader import load_manifest
 
-    plugins: dict[str, Path] = {}
+    plugin_dirs: dict[str, Path] = {}
+    manifests: dict[str, dict] = {}
 
     if not base_dir.exists():
-        return plugins
+        return plugin_dirs, manifests
 
     for type_dir in sorted(base_dir.iterdir()):
         if not type_dir.is_dir():
@@ -60,11 +64,13 @@ def discover_plugins(base_dir: Path) -> dict[str, Path]:
                         missing,
                     )
                     continue
-                plugins[str(manifest["id"])] = plugin_dir
+                pid = str(manifest["id"])
+                plugin_dirs[pid] = plugin_dir
+                manifests[pid] = manifest
             except Exception as exc:
                 logger.warning("Skipping %s — invalid manifest: %s", plugin_dir.name, exc)
 
-    return plugins
+    return plugin_dirs, manifests
 
 
 async def _get_active_plugin_ids() -> set[str]:
@@ -108,7 +114,7 @@ def stop_plugin(plugin_dir: Path, proc: subprocess.Popen) -> None:
 
 def main() -> None:
     base_dir = Path(settings.PLUGINS_DIR)
-    all_plugins = discover_plugins(base_dir)
+    all_plugins, manifests = discover_plugins(base_dir)
 
     if not all_plugins:
         logger.warning("No valid plugins found in %s — supervisor will idle.", base_dir)
@@ -126,6 +132,14 @@ def main() -> None:
         [p.name for p in all_plugins.values()],
     )
 
+    # Bootstrap a DB row for every discovered plugin so the is_active gate has
+    # something to read on a fresh install. on_conflict preserves any manual
+    # toggle from the UI.
+    try:
+        ensure_plugin_rows(manifests)
+    except Exception:
+        logger.exception("Failed to bootstrap plugin DB rows — proceeding anyway.")
+
     # Check which plugins are active in DB
     try:
         active_ids = get_active_plugin_ids()
@@ -136,7 +150,7 @@ def main() -> None:
     processes: dict[str, subprocess.Popen] = {}
     for plugin_id, plugin_dir in all_plugins.items():
         if plugin_id not in active_ids:
-            logger.info("Plugin %s (id=%s) is inactive — skipping.", plugin_dir.name, plugin_id[:8])
+            logger.info("Plugin %s (id=%s) is disabled in DB — skipping.", plugin_dir.name, plugin_id[:8])
             continue
         proc = start_plugin(plugin_dir)
         processes[plugin_id] = proc
