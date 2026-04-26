@@ -1,32 +1,44 @@
-"""Alert worker entry-point (stub).
+"""
+Alert worker entry-point.
 
     python -m nodelens.workers.alerts
 
-Placeholder that keeps the container healthy until the alert engine is
-implemented.  Touches the healthcheck file so Docker sees it as alive.
+1. Ensures DB tables exist (idempotent).
+2. Launches the alert evaluation loop (consumes telemetry_events,
+   writes alert_history, publishes alert_dispatch_events).
 """
 
+import asyncio
 import logging
-import time
 
-from nodelens.heartbeat import touch_heartbeat
+from nodelens.config import settings
 
 logging.basicConfig(
-    level="INFO",
+    level=settings.LOG_LEVEL,
     format="%(asctime)s  %(levelname)-8s  %(name)s  %(message)s",
 )
 logger = logging.getLogger("nodelens.alerts")
 
 
-def main() -> None:
-    logger.info("Alert worker started (not yet implemented — idling)")
+async def main() -> None:
+    from nodelens.db import init_models
+    from nodelens.db.session import engine
+
+    await init_models(engine)
+    logger.info("Database schema ready (alerts).")
+
+    from nodelens.workers.alerts.engine import run_engine
+
+    logger.info("Starting alert engine …")
     try:
-        while True:
-            touch_heartbeat()
-            time.sleep(30)
-    except KeyboardInterrupt:
-        logger.info("Alert worker stopped.")
+        await run_engine()
+    finally:
+        from nodelens.redis.client import close_redis
+
+        await close_redis()
+        await engine.dispose()
+        logger.info("Shutdown complete.")
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

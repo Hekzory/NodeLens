@@ -8,7 +8,7 @@
 
 ## Current status
 
-This repository is currently a **first-iteration partially implemented project**.
+This repository is currently a **partially implemented project**.
 
 Important:
 - Many files may still exist but be empty.
@@ -18,8 +18,10 @@ Important:
   - Redis Streams
   - Web backend (FastAPI)
   - Ingestor
-  - Plugins worker (with a built-in demo_sender device plugin)
-- `docker-compose.yml` currently starts 5 services: `postgres`, `redis`, `api`, `ingestor`, `plugins`.
+  - Plugins worker (with a built-in demo_sender device plugin and an `email` integration plugin)
+  - Alert processor (consumes telemetry, evaluates rules, dispatches via integration plugins)
+  - Frontend (React + nginx)
+- `docker-compose.yml` currently starts 7 services: `postgres`, `redis`, `api`, `ingestor`, `alerts`, `plugins`, `frontend`.
 - Metadata required for ingestion (`plugins`, `devices`, `sensors`) is registered at runtime by plugins themselves via the `registration_events` Redis stream. The ingestor consumes that stream and upserts rows into the DB. Registration is idempotent — plugins re-register on every restart.
 - Python target is **3.13**.
 - Python dependencies are managed with **uv** from `backend/pyproject.toml`.
@@ -112,10 +114,11 @@ Current implementation note:
   2. Redis Streams
   3. Web backend (FastAPI)
   4. Ingestor
-  5. Plugins worker
-  6. Frontend (React, served by nginx)
-- Frontend is implemented as an MVP (dashboard, devices, plugins pages).
-- MQTT broker usage and alert processor are not yet active runtime components in the current iteration.
+  5. Alert processor
+  6. Plugins worker (with `email` integration plugin)
+  7. Frontend (React, served by nginx)
+- Frontend is implemented as an MVP (dashboard, devices, plugins, alerts pages).
+- MQTT broker is not yet an active runtime component in the current iteration.
 
 ---
 
@@ -160,11 +163,13 @@ Current core Python deps for the implemented part:
 
 ### Alert path
 1. Telemetry event appears in Redis
-2. **Alert processor** consumes events from Redis
+2. **Alert processor** consumes events from Redis via its own consumer group (`alert_group`)
 3. Alert processor also reads DB state when rules require time-window checks
 4. If a rule triggers:
-   - write alert history to DB
-   - dispatch through integration mechanism
+   - cooldown check (last fire within `cooldown_seconds` blocks repeat) via `alert_history`
+   - write `alert_history` row
+   - publish a dispatch event to the `alert_dispatch_events` Redis stream, one per active linked notification channel
+   - the relevant integration plugin (running inside the plugins worker) consumes its own consumer group on that stream and calls its `send()` method
 
 ### Dashboard/read path
 1. Frontend requests dashboard/telemetry data from backend
@@ -257,8 +262,12 @@ Examples:
 Purpose:
 - provide alert outputs / destinations
 
+Mechanism:
+- Each integration plugin runs as a subprocess inside the plugins worker (same supervisor as device plugins).
+- The plugin's `start()` typically calls `run_dispatch_loop(self, self.ctx.plugin_id)` from the SDK, which subscribes to the `alert_dispatch_events` Redis stream via a per-plugin consumer group (`dispatch_<module_name>`), filters by `plugin_id`, decodes the channel config + `AlertMessage`, and invokes `self.send(channel_config, message)`.
+
 Examples:
-- [not implemented]
+- `email` (built-in) — plain SMTP via aiosmtplib (no auth, no TLS verification). Channel config: `to`, `smtp_host`, `smtp_port`, `from`, `subject` (optional).
 
 ### Plugin placement
 - user-facing plugin folders live under root `plugins/devices/` and `plugins/integrations/`
@@ -317,7 +326,7 @@ Exact plugin hot-reload behavior:
 - [this part is not currently implemented, will be replaced with details of internals later]
 
 Exact integration plugin invocation path:
-- [this part is not currently implemented, will be replaced with details of internals later]
+- See "Integration plugins" above and "Alert dispatch stream" under `nodelens/redis`. Concretely: the alert worker `xadd`s one event per linked channel to `alert_dispatch_events`; each integration plugin subprocess (running inside the plugins worker) consumes its own per-plugin consumer group, filters by `plugin_id`, and invokes its `send()` method via the SDK helper `run_dispatch_loop`.
 
 ---
 
@@ -335,18 +344,19 @@ Shared Python codebase.
 
 Currently implemented parts:
 - `nodelens/config.py` → settings (`DATABASE_URL`, `REDIS_URL`, `LOG_LEVEL`, `PLUGINS_DIR`)
-- `nodelens/constants.py` → stream/group constants for both `telemetry_events` and `registration_events`
-- `nodelens/db` → SQLAlchemy base, async session, models (Plugin, Device, Sensor, TelemetryRecord)
-- `nodelens/redis` → Redis client + stream helpers
+- `nodelens/constants.py` → stream/group constants for `telemetry_events`, `registration_events`, and `alert_dispatch_events`
+- `nodelens/db` → SQLAlchemy base, async session, models (Plugin, Device, Sensor, TelemetryRecord, AlertRule, AlertHistory, NotificationChannel, AlertRuleChannel, Dashboard, DashboardWidget)
+- `nodelens/redis` → Redis client + stream helpers + shared `parse_telemetry_event`
 - `nodelens/schemas/events.py` → TelemetryEvent, AlertMessage, RegisterPluginEvent, RegisterDeviceEvent, RegisterSensorEvent
-- `nodelens/sdk` → plugin SDK (BasePlugin, DevicePlugin, IntegrationPlugin, PluginContext, exceptions)
+- `nodelens/sdk` → plugin SDK (BasePlugin, DevicePlugin, IntegrationPlugin, PluginContext, exceptions, `run_dispatch_loop`)
 - `nodelens/workers/ingestor` → telemetry consumer, registration consumer, writer with validation
+- `nodelens/workers/alerts` → alert engine (consumer + evaluator + dispatcher); supports `instant` and `aggregated` rule types with cooldown
 - `nodelens/workers/plugin_runner` → plugin supervisor, loader, single-plugin subprocess runner
 
-- `tests/` → unit tests (pytest + pytest-asyncio); covers event parsing, writer validation pipeline, registration coercion, plugin loader/discovery, and API route logic (alerts, telemetry, dashboards)
+- `tests/` → unit tests (pytest + pytest-asyncio); covers event parsing, writer validation pipeline, registration coercion, plugin loader/discovery, alert evaluator + dispatcher, email plugin, and API route logic (alerts, channels, telemetry, dashboards)
 
 Planned but not implemented yet:
-- `nodelens/workers/alerts` → alert worker
+- `no_data` rule evaluation (the API accepts `condition=no_data` but the alert engine skips them — needs a periodic scanner)
 - `alembic/` → migrations
 
 ### `/plugins`
@@ -417,8 +427,17 @@ Exact routes and payloads:
 - `GET /api/alerts/rules/{rule_id}` — get single rule
 - `PATCH /api/alerts/rules/{rule_id}` — partial update
 - `DELETE /api/alerts/rules/{rule_id}` — delete rule
+- `GET /api/alerts/rules/{rule_id}/channels` — list channels linked to rule
+- `PUT /api/alerts/rules/{rule_id}/channels` — replace the linked-channel set
 - `GET /api/alerts/history` — list fired alerts (paginated, filterable)
 - `POST /api/alerts/history/{history_id}/acknowledge` — mark acknowledged
+
+**Channels** `channels.py`
+- `GET /api/alerts/channels` — list (filter by `plugin_id`, `is_active`)
+- `POST /api/alerts/channels` — create (validates plugin is `type=integration`)
+- `GET /api/alerts/channels/{channel_id}` — get single
+- `PATCH /api/alerts/channels/{channel_id}` — partial update
+- `DELETE /api/alerts/channels/{channel_id}` — delete (cascades to `alert_rule_channels`)
 
 **Dashboards** `dashboards.py`
 - `GET /api/dashboards` — list dashboards
@@ -488,6 +507,19 @@ Current implemented schema subset:
   - `triggered_at: TIMESTAMPTZ`
   - `acknowledged_at: TIMESTAMPTZ`
 
+- `notification_channels`
+  - `id: UUID` (PK)
+  - `name: VARCHAR` (unique)
+  - `plugin_id: UUID` (FK → `plugins.id`, integration plugin)
+  - `config: JSONB`
+  - `is_active: BOOLEAN`
+  - `created_at`, `updated_at: TIMESTAMPTZ`
+
+- `alert_rule_channels` (M2M)
+  - `rule_id: UUID` (FK → `alert_rules.id`, ON DELETE CASCADE)
+  - `channel_id: UUID` (FK → `notification_channels.id`, ON DELETE CASCADE)
+  - composite PK
+
 - `dashboards`
   - `id: UUID` (PK)
   - `name: VARCHAR`
@@ -520,6 +552,13 @@ Current implemented stream structures:
 - consumer name: `registrar-1`
 - event types: `register_plugin`, `register_device`, `register_sensor`
 - each event includes an `event_type` field plus type-specific fields matching the corresponding dataclass
+
+**Alert dispatch stream:**
+- stream name: `alert_dispatch_events`
+- one consumer group per integration plugin: `dispatch_<module_name>` (e.g. `dispatch_email`)
+- consumer name: `<module_name>-1`
+- fields: `plugin_id`, `channel_id`, `channel_config_json`, `alert_message_json`
+- integration plugins skip + ack events whose `plugin_id` does not match their own; on matches they decode the JSON fields and call `IntegrationPlugin.send(channel_config, message)`
 
 Implemented concerns:
 - Redis connection helper
@@ -616,8 +655,16 @@ Expected rule categories:
 
 Exact alert DSL / configuration schema:
 - Rules are persisted via Web Backend API as either `instant` (single realtime value vs threshold) or `aggregated` (agg function over a time window `duration_seconds`).
+- `instant` rules compare each incoming `value` against `threshold` using `condition` ∈ {gt, lt, gte, lte, eq, neq}.
+- `aggregated` rules run `aggregation` ∈ {avg, min, max, sum, count} over `duration_seconds` of `telemetry` history for the sensor on every received event, then compare to `threshold`.
+- `condition=no_data` is accepted by the API but **not yet evaluated** — needs a periodic scanner.
 
-Exact deduplication, cooldown, acknowledgement behavior:
+Cooldown / acknowledgement behavior:
+- Cooldown is enforced by querying `MAX(alert_history.triggered_at) WHERE rule_id=?` on every potential fire; if the last fire was within `cooldown_seconds`, the fire is suppressed.
+- On fire: one `alert_history` row is written; one dispatch event is published per active linked channel.
+- Acknowledgement: `POST /api/alerts/history/{id}/acknowledge` sets `acknowledged_at`.
+
+Dedup beyond cooldown / dead-letter for failed `send()` / per-channel templating:
 - [this part is not currently implemented, will be replaced with details of internals later]
 
 ---
@@ -657,7 +704,9 @@ Current compose/runtime definitions:
   - `redis`
   - `api`
   - `ingestor`
+  - `alerts`
   - `plugins`
+  - `frontend`
 
 Current relevant env vars:
 - `POSTGRES_USER`
@@ -672,8 +721,8 @@ Current useful commands:
 - `make up`
 - `make down` / `make down-v`
 - `make seed`
-- `make logs` / `make logs-ingestor` / `make logs-plugins` / `make logs-api`
-- `make restart` / `make restart-api`
+- `make logs` / `make logs-ingestor` / `make logs-plugins` / `make logs-api` / `make logs-alerts`
+- `make restart` / `make restart-api` / `make restart-alerts`
 - `make ps`
 - `make query-telemetry`
 - `make query-devices`
@@ -683,7 +732,7 @@ Current useful commands:
 - `make redis-registration`
 
 Future full 8-service compose layout:
-- [this part is not currently implemented, will be replaced with details of internals later]
+- 7 of the 8 target services run today (`postgres`, `redis`, `api`, `ingestor`, `alerts`, `plugins`, `frontend`). The missing one is the **MQTT broker** (Eclipse Mosquitto) — it's in the architecture but not yet wired into compose; no MQTT device plugin exists yet either.
 
 ---
 
@@ -691,11 +740,13 @@ Future full 8-service compose layout:
 
 Do not assume any of the following already exist unless they are explicitly implemented in code:
 - authentication system
-- finalized full application database schema beyond the currently implemented ingestion subset
-- finalized Redis/event contracts beyond the currently implemented telemetry ingestion contract
+- finalized full application database schema beyond the implemented subset (ingestion + alerts + dashboards)
+- finalized Redis/event contracts beyond telemetry, registration, and alert-dispatch
 - plugin hot-reloading
 - plugin security sandboxing
-- detailed alert delivery engine
+- `no_data` rule evaluation (API accepts the condition but the engine doesn't fire on it yet)
+- retries / dead-letter for failed integration `send()`
+- per-channel message templating
 - observability stack
 - production hardening
 
@@ -733,12 +784,15 @@ NodeLens is a Docker Compose-deployed, self-hosted IoT telemetry monitoring syst
 
 Current implemented slice:
 - PostgreSQL + TimescaleDB
-- Redis Streams
-- Web Backend (FastAPI, 6 domains: health, plugins, devices, telemetry, alerts, dashboards)
+- Redis Streams (telemetry, registration, alert dispatch)
+- Web Backend (FastAPI, 7 domains: health, plugins, devices, telemetry, alerts, channels, dashboards)
 - Ingestor worker (telemetry consumer + registration consumer)
+- Alert worker (instant + aggregated rule evaluation, cooldown, dispatch via Redis stream)
 - Plugins worker (supervisor + subprocess launcher)
-- Plugin SDK (BasePlugin, DevicePlugin, IntegrationPlugin, PluginContext)
-- Built-in demo_sender device plugin (generates synthetic telemetry)
+- Plugin SDK (BasePlugin, DevicePlugin, IntegrationPlugin, PluginContext, `run_dispatch_loop`)
+- Built-in `demo_sender` device plugin (generates synthetic telemetry)
+- Built-in `email` integration plugin (plain SMTP via aiosmtplib)
+- Frontend MVP (dashboard, devices, plugins, alerts pages)
 - Registration stream for idempotent plugin/device/sensor metadata upserts
 
 Anything not explicitly fixed above should be treated as:

@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from nodelens import __version__
 from nodelens.api.middleware import ETagMiddleware
 from nodelens.api.routes.alerts import router as alerts_router
+from nodelens.api.routes.channels import router as channels_router
 from nodelens.api.routes.dashboards import router as dashboards_router
 from nodelens.api.routes.devices import router as devices_router
 from nodelens.api.routes.health import router as health_router
@@ -61,5 +62,6 @@ app.include_router(health_router)
 app.include_router(plugins_router)
 app.include_router(devices_router)
 app.include_router(telemetry_router)
+app.include_router(channels_router)
 app.include_router(alerts_router)
 app.include_router(dashboards_router)

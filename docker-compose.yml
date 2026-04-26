@@ -86,6 +86,36 @@ services:
           memory: 128m
     restart: unless-stopped
 
+  alerts:
+    build:
+      context: .
+      dockerfile: deploy/alerts.Dockerfile
+    init: true
+    environment:
+      DATABASE_URL: "postgresql+asyncpg://nodelens:nodelens@postgres:5432/nodelens"
+      REDIS_URL: "redis://redis:6379/0"
+      LOG_LEVEL: "INFO"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ingestor:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import os,sys,time; sys.exit(0 if os.path.exists('/tmp/.healthcheck') and time.time()-os.path.getmtime('/tmp/.healthcheck')<30 else 1)\""]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+        reservations:
+          memory: 64m
+    restart: unless-stopped
+
   plugins:
     build:
       context: .

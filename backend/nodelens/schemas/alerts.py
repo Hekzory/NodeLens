@@ -60,6 +60,7 @@ class AlertRuleRead(BaseModel):
     is_active: bool
     created_at: datetime
     updated_at: datetime
+    channel_ids: list[uuid.UUID] = Field(default_factory=list)
 
 
 # ── Alert History ───────────────────────────────────────────────

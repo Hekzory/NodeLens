@@ -1,0 +1,11 @@
+id: "40000000-0000-0000-0000-000000000001"
+name: email
+display_name: "Email (SMTP)"
+version: "0.1.0"
+type: integration
+entry_point: "plugin:EmailIntegrationPlugin"
+description: >
+  Sends alert emails over plain SMTP using aiosmtplib. No auth, no TLS
+  verification — intended as a working reference integration.  Per-channel
+  config holds recipient ('to'), 'smtp_host', 'smtp_port', 'from', and
+  optional 'subject'.

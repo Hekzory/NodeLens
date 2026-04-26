@@ -1,8 +1,10 @@
 """Reads telemetry events from the Redis stream and writes them to TimescaleDB."""
 
+from __future__ import annotations
+
 import asyncio
 import logging
-from datetime import datetime
+from typing import TYPE_CHECKING
 
 from redis.exceptions import ConnectionError as RedisConnectionError
 from redis.exceptions import TimeoutError as RedisTimeoutError
@@ -14,20 +16,14 @@ from nodelens.constants import (
 )
 from nodelens.heartbeat import touch_heartbeat
 from nodelens.redis.client import get_redis
+from nodelens.redis.parse import parse_telemetry_event
 from nodelens.redis.streams import ack, ensure_consumer_group, read_stream
-from nodelens.schemas.events import TelemetryEvent
 from nodelens.workers.ingestor.writer import write_batch
 
+if TYPE_CHECKING:
+    from nodelens.schemas.events import TelemetryEvent
+
 logger = logging.getLogger("nodelens.ingestor.consumer")
-
-
-def _parse_event(fields: dict) -> TelemetryEvent:
-    return TelemetryEvent(
-        device_id=fields["device_id"],
-        sensor_id=fields["sensor_id"],
-        value=float(fields["value"]),
-        timestamp=datetime.fromisoformat(fields["timestamp"]),
-    )
 
 
 async def run_consumer() -> None:
@@ -65,7 +61,7 @@ async def run_consumer() -> None:
 
         for msg_id, fields in messages:
             try:
-                events.append(_parse_event(fields))
+                events.append(parse_telemetry_event(fields))
                 good_ids.append(msg_id)
             except (KeyError, ValueError) as exc:
                 logger.warning("Dropping malformed message %s: %s", msg_id, exc)

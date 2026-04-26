@@ -6,6 +6,7 @@ const DashboardPage = lazy(() => import('@/pages/DashboardPage').then(m => ({ de
 const DevicesPage = lazy(() => import('@/pages/DevicesPage').then(m => ({ default: m.DevicesPage })));
 const DeviceDetailPage = lazy(() => import('@/pages/DeviceDetailPage').then(m => ({ default: m.DeviceDetailPage })));
 const PluginsPage = lazy(() => import('@/pages/PluginsPage').then(m => ({ default: m.PluginsPage })));
+const AlertsPage = lazy(() => import('@/pages/AlertsPage').then(m => ({ default: m.AlertsPage })));
 
 const router = createBrowserRouter([
   {
@@ -16,6 +17,7 @@ const router = createBrowserRouter([
       { path: '/devices', element: <DevicesPage /> },
       { path: '/devices/:id', element: <DeviceDetailPage /> },
       { path: '/plugins', element: <PluginsPage /> },
+      { path: '/alerts', element: <AlertsPage /> },
     ],
   },
 ]);

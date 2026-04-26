@@ -304,3 +304,69 @@ class TestListAlertHistory:
         mock_db.execute = AsyncMock(return_value=make_execute_result(scalars_all=[]))
         resp = await client.get("/api/alerts/history?acknowledged=false&limit=10&offset=0")
         assert resp.status_code == 200
+
+
+# ── Rule ↔ channel links ─────────────────────────────────────────
+
+
+class TestSetRuleChannels:
+    async def test_rule_not_found_returns_404(self, client, mock_db):
+        mock_db.get = AsyncMock(return_value=None)
+        resp = await client.put(
+            f"/api/alerts/rules/{uuid.uuid4()}/channels",
+            json={"channel_ids": []},
+        )
+        assert resp.status_code == 404
+
+    async def test_unknown_channel_id_returns_400(self, client, mock_db):
+        rule = _make_rule()
+        mock_db.get = AsyncMock(return_value=rule)
+        # First execute: existing channel ids check (returns [] — none exist).
+        mock_db.execute = AsyncMock(return_value=make_execute_result(scalars_all=[]))
+        resp = await client.put(
+            f"/api/alerts/rules/{rule.id}/channels",
+            json={"channel_ids": [str(uuid.uuid4())]},
+        )
+        assert resp.status_code == 400
+        assert "Unknown channel id" in resp.json()["detail"]
+
+    async def test_clears_links_on_empty_body(self, client, mock_db):
+        rule = _make_rule()
+        mock_db.get = AsyncMock(return_value=rule)
+        # Execute is called for: current links (empty), then channel_ids_for_rule (empty) inside _rule_to_read.
+        mock_db.execute = AsyncMock(return_value=make_execute_result(scalars_all=[]))
+        resp = await client.put(
+            f"/api/alerts/rules/{rule.id}/channels",
+            json={"channel_ids": []},
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["channel_ids"] == []
+
+
+class TestListRuleChannels:
+    async def test_rule_not_found_returns_404(self, client, mock_db):
+        mock_db.get = AsyncMock(return_value=None)
+        resp = await client.get(f"/api/alerts/rules/{uuid.uuid4()}/channels")
+        assert resp.status_code == 404
+
+
+# ── AlertRuleRead exposes channel_ids ────────────────────────────
+
+
+class TestAlertRuleReadShape:
+    async def test_create_includes_channel_ids_field(self, client, mock_db):
+        mock_db.get = AsyncMock(return_value=MagicMock())  # sensor lookup
+        resp = await client.post("/api/alerts/rules", json=_BASE_RULE)
+        assert resp.status_code == 201
+        body = resp.json()
+        assert "channel_ids" in body
+        assert body["channel_ids"] == []
+
+    async def test_list_includes_channel_ids_field(self, client, mock_db):
+        rule = _make_rule()
+        mock_db.execute = AsyncMock(return_value=make_execute_result(scalars_all=[rule]))
+        resp = await client.get("/api/alerts/rules")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert all("channel_ids" in r for r in body)

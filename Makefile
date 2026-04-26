@@ -1,4 +1,4 @@
-.PHONY: up down down-v logs logs-ingestor logs-plugins logs-api ps restart restart-api seed api-docs curl-health test pytest lint lint-fix loadtest-up loadtest loadtest-down build
+.PHONY: up down down-v logs logs-ingestor logs-plugins logs-api logs-alerts ps restart restart-api restart-alerts seed api-docs curl-health test pytest lint lint-fix loadtest-up loadtest loadtest-down build
 
 # ── BuildKit / Compose settings ──────────────────────────────────
 export DOCKER_BUILDKIT       := 1
@@ -40,6 +40,9 @@ logs-plugins:
 logs-api:
 	docker compose logs -f api
 
+logs-alerts:
+	docker compose logs -f alerts
+
 logs-frontend:
 	docker compose logs -f frontend
 
@@ -47,10 +50,13 @@ ps:
 	docker compose ps
 
 restart:
-	docker compose restart ingestor plugins api
+	docker compose restart ingestor alerts plugins api
 
 restart-api:
 	docker compose restart api
+
+restart-alerts:
+	docker compose restart alerts
 
 seed:
 	docker compose run --rm seed

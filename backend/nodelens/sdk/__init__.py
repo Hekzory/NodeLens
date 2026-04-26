@@ -12,6 +12,7 @@ from nodelens.sdk.events import (
 )
 from nodelens.sdk.exceptions import PluginConfigError, PluginError
 from nodelens.sdk.integration_plugin import IntegrationPlugin
+from nodelens.sdk.integration_runtime import run_dispatch_loop
 
 __all__ = [
     "BasePlugin",
@@ -25,4 +26,5 @@ __all__ = [
     "RegisterSensorEvent",
     "PluginError",
     "PluginConfigError",
+    "run_dispatch_loop",
 ]

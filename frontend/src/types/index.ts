@@ -160,3 +160,90 @@ export interface WidgetUpdate {
   layout?: WidgetLayout;
   sort_order?: number;
 }
+
+// --- Alerts ---
+export type AlertRuleType = 'instant' | 'aggregated';
+export type AlertCondition = 'gt' | 'lt' | 'gte' | 'lte' | 'eq' | 'neq' | 'no_data';
+export type AlertAggregation = 'avg' | 'min' | 'max' | 'sum' | 'count';
+export type AlertSeverity = 'info' | 'warning' | 'critical';
+
+export interface AlertRule {
+  id: string;
+  name: string;
+  description: string | null;
+  sensor_id: string;
+  rule_type: AlertRuleType;
+  condition: AlertCondition;
+  threshold: number | null;
+  aggregation: AlertAggregation | null;
+  duration_seconds: number;
+  cooldown_seconds: number;
+  severity: AlertSeverity;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  channel_ids: string[];
+}
+
+export interface AlertRuleCreate {
+  name: string;
+  description?: string | null;
+  sensor_id: string;
+  rule_type: AlertRuleType;
+  condition: AlertCondition;
+  threshold?: number | null;
+  aggregation?: AlertAggregation | null;
+  duration_seconds?: number;
+  cooldown_seconds?: number;
+  severity?: AlertSeverity;
+  is_active?: boolean;
+}
+
+export interface AlertRuleUpdate {
+  name?: string;
+  description?: string | null;
+  sensor_id?: string;
+  rule_type?: AlertRuleType;
+  condition?: AlertCondition;
+  threshold?: number | null;
+  aggregation?: AlertAggregation | null;
+  duration_seconds?: number;
+  cooldown_seconds?: number;
+  severity?: AlertSeverity;
+  is_active?: boolean;
+}
+
+export interface AlertHistory {
+  id: string;
+  rule_id: string;
+  rule_name: string | null;
+  triggered_value: number | null;
+  message: string;
+  triggered_at: string;
+  acknowledged_at: string | null;
+}
+
+export interface NotificationChannel {
+  id: string;
+  name: string;
+  plugin_id: string;
+  plugin_module_name: string | null;
+  config: Record<string, unknown>;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NotificationChannelCreate {
+  name: string;
+  plugin_id: string;
+  config: Record<string, unknown>;
+  is_active?: boolean;
+}
+
+export interface NotificationChannelUpdate {
+  name?: string;
+  plugin_id?: string;
+  config?: Record<string, unknown>;
+  is_active?: boolean;
+}

@@ -1,6 +1,7 @@
 """Route sub-package — re-exports all routers for convenience."""
 
 from nodelens.api.routes.alerts import router as alerts_router
+from nodelens.api.routes.channels import router as channels_router
 from nodelens.api.routes.dashboards import router as dashboards_router
 from nodelens.api.routes.devices import router as devices_router
 from nodelens.api.routes.health import router as health_router
@@ -12,6 +13,7 @@ __all__ = [
     "plugins_router",
     "devices_router",
     "telemetry_router",
+    "channels_router",
     "alerts_router",
     "dashboards_router",
 ]

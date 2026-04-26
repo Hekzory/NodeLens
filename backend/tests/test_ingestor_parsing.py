@@ -4,13 +4,13 @@ from datetime import datetime
 
 import pytest
 
+from nodelens.redis.parse import parse_telemetry_event as _parse_event
 from nodelens.schemas.events import (
     RegisterDeviceEvent,
     RegisterPluginEvent,
     RegisterSensorEvent,
     TelemetryEvent,
 )
-from nodelens.workers.ingestor.consumer import _parse_event
 from nodelens.workers.ingestor.registration import (
     _parse_register_device,
     _parse_register_plugin,

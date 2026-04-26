@@ -1,13 +1,14 @@
 import { Suspense } from 'react';
 import { AppShell, Center, Loader, NavLink, Text, Burger, Group } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { IconLayoutDashboard, IconDevices, IconPlug } from '@tabler/icons-react';
+import { IconLayoutDashboard, IconDevices, IconPlug, IconBell } from '@tabler/icons-react';
 import { Outlet, NavLink as RouterNavLink, useLocation } from 'react-router-dom';
 import { Logo } from '@/components/Logo';
 
 const navItems = [
   { label: 'Dashboard', icon: IconLayoutDashboard, to: '/' },
   { label: 'Devices', icon: IconDevices, to: '/devices' },
+  { label: 'Alerts', icon: IconBell, to: '/alerts' },
   { label: 'Plugins', icon: IconPlug, to: '/plugins' },
 ];
 
