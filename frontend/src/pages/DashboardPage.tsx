@@ -10,7 +10,8 @@ import { WidgetGrid } from '@/components/dashboard/WidgetGrid';
 import { AddWidgetModal } from '@/components/dashboard/AddWidgetModal';
 import { EditWidgetModal } from '@/components/dashboard/EditWidgetModal';
 import { DashboardSettingsModal } from '@/components/dashboard/DashboardSettingsModal';
-import { TimeRangeProvider, TIME_PRESETS, useTimeRange } from '@/context/TimeRange';
+import { TimeRangeProvider } from '@/context/TimeRange';
+import { TIME_PRESETS, useTimeRange } from '@/context/timeRangeContext';
 import type { DashboardCreate, Widget } from '@/types';
 
 function TimeRangeSelector() {
@@ -47,7 +48,11 @@ export function DashboardPage() {
   const queryClient = useQueryClient();
   const { data: dashboards, isLoading: listLoading } = useDashboards();
 
-  const activeDashboardId = paramId ?? dashboards?.find((d) => d.is_default)?.id ?? dashboards?.[0]?.id ?? '';
+  const requestedExists = paramId ? dashboards?.some((d) => d.id === paramId) : true;
+  const activeDashboardId = (requestedExists ? paramId : undefined)
+    ?? dashboards?.find((d) => d.is_default)?.id
+    ?? dashboards?.[0]?.id
+    ?? '';
 
   const { data: dashboard, isLoading: dashLoading } = useDashboard(activeDashboardId);
   const { mutate: createDashboard, isPending: creating } = useCreateDashboard();
@@ -80,6 +85,18 @@ export function DashboardPage() {
 
   if (listLoading) return <Center h="60vh"><Loader /></Center>;
 
+  if (paramId && dashboards?.length && !requestedExists) {
+    return (
+      <Center h="60vh">
+        <Stack align="center">
+          <IconLayoutGrid size={48} opacity={0.3} />
+          <Text c="dimmed">Dashboard not found.</Text>
+          <Button variant="default" onClick={() => navigate('/')}>Go to default</Button>
+        </Stack>
+      </Center>
+    );
+  }
+
   if (!dashboards?.length) {
     return (
       <Center h="60vh">
@@ -101,7 +118,7 @@ export function DashboardPage() {
   }
 
   return (
-    <TimeRangeProvider dashboardId={activeDashboardId}>
+    <TimeRangeProvider key={activeDashboardId} dashboardId={activeDashboardId}>
       <Group mb="md" justify="space-between" wrap="wrap">
         <Group wrap="wrap">
           <Select

@@ -64,7 +64,7 @@ export function DeviceDetailPage() {
         {device.last_seen && (
           <Text size="sm" c="dimmed" mt="xs">
             Last seen:{' '}
-            <Text component="span" c="dimmed" ff="var(--font-mono)" style={{ fontVariantNumeric: 'tabular-nums' }}>
+            <Text component="span" c="dimmed" className="nl-mono">
               {new Date(device.last_seen).toLocaleString()}
             </Text>
           </Text>
@@ -92,13 +92,13 @@ export function DeviceDetailPage() {
                 >
                   <Table.Td fw={500}>{sensor.name}</Table.Td>
                   <Table.Td>
-                    <Text fw={600} ff="var(--font-mono)" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                    <Text fw={600} className="nl-mono">
                       {latest?.value_numeric?.toFixed(2) ?? '—'}
                     </Text>
                   </Table.Td>
                   <Table.Td><Text c="dimmed">{sensor.unit ?? '—'}</Text></Table.Td>
                   <Table.Td>
-                    <Text size="sm" c="dimmed" ff="var(--font-mono)" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                    <Text size="sm" c="dimmed" className="nl-mono">
                       {latest?.time ? new Date(latest.time).toLocaleTimeString() : '—'}
                     </Text>
                   </Table.Td>

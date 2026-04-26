@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Title, Table, Badge, Text, Stack, Group, Select, SegmentedControl, Skeleton } from '@mantine/core';
+import { Title, Table, Badge, Text, Stack, Group, Select, SegmentedControl, Skeleton, Button } from '@mantine/core';
 import { useDevices } from '@/hooks/devices';
 import { usePlugins } from '@/hooks/plugins';
 
@@ -11,6 +11,7 @@ export function DevicesPage() {
   const [onlineFilter, setOnlineFilter] = useState('all');
 
   const isOnline = onlineFilter === 'online' ? true : onlineFilter === 'offline' ? false : undefined;
+  const hasFilter = !!pluginFilter || onlineFilter !== 'all';
   const { data: devices, isLoading } = useDevices({
     plugin_id: pluginFilter ?? undefined,
     is_online: isOnline,
@@ -68,12 +69,12 @@ export function DevicesPage() {
                   </Badge>
                 </Table.Td>
                 <Table.Td>
-                  <Text ff="var(--font-mono)" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                  <Text className="nl-mono">
                     {device.sensor_count}
                   </Text>
                 </Table.Td>
                 <Table.Td>
-                  <Text size="sm" c="dimmed" ff="var(--font-mono)" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                  <Text size="sm" c="dimmed" className="nl-mono">
                     {device.last_seen ? new Date(device.last_seen).toLocaleString() : '—'}
                   </Text>
                 </Table.Td>
@@ -81,7 +82,21 @@ export function DevicesPage() {
             ))
           ) : (
             <Table.Tr>
-              <Table.Td colSpan={5}><Text c="dimmed" ta="center" py="md">No devices found</Text></Table.Td>
+              <Table.Td colSpan={5}>
+                {hasFilter ? (
+                  <Text c="dimmed" ta="center" py="md">No devices match these filters.</Text>
+                ) : (
+                  <Stack align="center" py="md" gap={6}>
+                    <Text c="dimmed">No devices found.</Text>
+                    <Text size="xs" c="dimmed">
+                      Devices appear automatically when a plugin registers them.
+                    </Text>
+                    <Button size="xs" variant="default" onClick={() => navigate('/plugins')}>
+                      Manage plugins
+                    </Button>
+                  </Stack>
+                )}
+              </Table.Td>
             </Table.Tr>
           )}
         </Table.Tbody>

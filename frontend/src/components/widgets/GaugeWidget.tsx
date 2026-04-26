@@ -51,9 +51,9 @@ export function GaugeWidget({ widget }: { widget: Widget }) {
             <Stack gap={2} align="center">
               <Text
                 fw={700}
-                ff="var(--font-mono)"
+                className="nl-mono"
                 lh={1}
-                style={{ fontSize: valueFs, fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.01em' }}
+                style={{ fontSize: valueFs, letterSpacing: '-0.01em' }}
               >
                 {value.toFixed(1)}
                 {unit && (

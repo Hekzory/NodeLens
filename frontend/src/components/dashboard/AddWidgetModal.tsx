@@ -1,8 +1,7 @@
 import { Modal, SegmentedControl, Select, TextInput, Button, Stack, Group, Text } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { useState } from 'react';
-import { useDevices } from '@/hooks/devices';
-import { useDeviceSensors } from '@/hooks/devices';
+import { useDevices, useDeviceSensors } from '@/hooks/devices';
 import { useCreateWidget } from '@/hooks/dashboards';
 import { DEFAULT_WIDGET_SIZES, type WidgetType } from '@/types';
 

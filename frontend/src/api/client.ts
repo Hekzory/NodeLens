@@ -7,14 +7,33 @@ export function buildQueryString(params: Record<string, string | number | boolea
   return s ? `?${s}` : '';
 }
 
+async function extractErrorMessage(res: Response): Promise<string> {
+  const ct = res.headers.get('content-type') ?? '';
+  if (ct.includes('application/json')) {
+    try {
+      const body = await res.json();
+      if (typeof body?.detail === 'string') return body.detail;
+      if (Array.isArray(body?.detail)) {
+        return body.detail
+          .map((d: { loc?: unknown[]; msg?: string }) =>
+            d.loc?.length ? `${d.loc.join('.')}: ${d.msg ?? ''}` : (d.msg ?? ''),
+          )
+          .filter(Boolean)
+          .join('; ');
+      }
+      if (typeof body?.message === 'string') return body.message;
+    } catch { /* fall through to statusText */ }
+  }
+  return res.statusText || 'Request failed';
+}
+
 export async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
   const res = await fetch(url, {
     ...options,
     headers: { 'Content-Type': 'application/json', ...options?.headers },
   });
   if (!res.ok) {
-    const text = await res.text().catch(() => res.statusText);
-    throw new Error(`${res.status} ${text}`);
+    throw new Error(`${res.status} ${await extractErrorMessage(res)}`);
   }
   if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;

@@ -1,7 +1,7 @@
 import { Stack, Text, Group, Skeleton, Center } from '@mantine/core';
 import { IconTrendingUp, IconTrendingDown, IconMinus } from '@tabler/icons-react';
 import { useTelemetryLatest, useTelemetrySummary } from '@/hooks/telemetry';
-import { useTimeRange } from '@/context/TimeRange';
+import { useTimeRange } from '@/context/timeRangeContext';
 import type { Widget } from '@/types';
 
 function formatTime(iso: string): string {
@@ -34,10 +34,10 @@ export function StatCardWidget({ widget }: { widget: Widget }) {
     <Stack gap={8} justify="center" h="100%">
       <Group gap={6} align="baseline" wrap="nowrap">
         <Text
-          ff="var(--font-mono)"
+          className="nl-mono"
           fw={700}
           lh={1}
-          style={{ fontSize: 28, fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.01em' }}
+          style={{ fontSize: 28, letterSpacing: '-0.01em' }}
         >
           {displayValue}
         </Text>
@@ -51,7 +51,7 @@ export function StatCardWidget({ widget }: { widget: Widget }) {
             ) : (
               <IconMinus size={14} color="var(--mantine-color-dimmed)" />
             )}
-            <Text size="xs" c="dimmed" lh={1} ff="var(--font-mono)" style={{ fontVariantNumeric: 'tabular-nums' }}>
+            <Text size="xs" c="dimmed" lh={1} className="nl-mono">
               {Math.abs(delta).toFixed(1)}%
             </Text>
           </Group>
@@ -60,18 +60,18 @@ export function StatCardWidget({ widget }: { widget: Widget }) {
       {summary && (
         <Group gap="md">
           <Text size="xs" c="dimmed">
-            Min <Text component="span" ff="var(--font-mono)" style={{ fontVariantNumeric: 'tabular-nums' }} c="dimmed">{summary.min?.toFixed(1) ?? '—'}</Text>
+            Min <Text component="span" className="nl-mono" c="dimmed">{summary.min?.toFixed(1) ?? '—'}</Text>
           </Text>
           <Text size="xs" c="dimmed">
-            Avg <Text component="span" ff="var(--font-mono)" style={{ fontVariantNumeric: 'tabular-nums' }} c="dimmed">{summary.avg?.toFixed(1) ?? '—'}</Text>
+            Avg <Text component="span" className="nl-mono" c="dimmed">{summary.avg?.toFixed(1) ?? '—'}</Text>
           </Text>
           <Text size="xs" c="dimmed">
-            Max <Text component="span" ff="var(--font-mono)" style={{ fontVariantNumeric: 'tabular-nums' }} c="dimmed">{summary.max?.toFixed(1) ?? '—'}</Text>
+            Max <Text component="span" className="nl-mono" c="dimmed">{summary.max?.toFixed(1) ?? '—'}</Text>
           </Text>
         </Group>
       )}
       {data?.time && (
-        <Text size="xs" c="dimmed" ff="var(--font-mono)" style={{ fontVariantNumeric: 'tabular-nums' }}>
+        <Text size="xs" c="dimmed" className="nl-mono">
           {formatTime(data.time)}
         </Text>
       )}

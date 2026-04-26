@@ -23,7 +23,13 @@ export function AppLayout() {
     >
       <AppShell.Header>
         <Group h="100%" px="md">
-          <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
+          <Burger
+            opened={opened}
+            onClick={toggle}
+            hiddenFrom="sm"
+            size="sm"
+            aria-label={opened ? 'Close navigation' : 'Open navigation'}
+          />
           <Logo variant="lockup" size={28} />
           <Text size="xs" c="dimmed" visibleFrom="sm">IoT Telemetry Monitor</Text>
         </Group>

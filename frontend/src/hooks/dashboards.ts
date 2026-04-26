@@ -19,7 +19,6 @@ export const useDashboard = (id: string) =>
     queryKey: ['dashboards', id],
     queryFn: ({ signal }) => fetchDashboard(id, signal),
     enabled: !!id,
-    refetchInterval: 10_000,
   });
 
 export const useCreateDashboard = () => {

@@ -56,12 +56,12 @@ export function PluginsPage() {
                   <Table.Td fw={500}>{plugin.display_name}</Table.Td>
                   <Table.Td><Badge variant="light" size="sm">{plugin.plugin_type}</Badge></Table.Td>
                   <Table.Td>
-                    <Text size="sm" c="dimmed" ff="var(--font-mono)" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                    <Text size="sm" c="dimmed" className="nl-mono">
                       {plugin.version}
                     </Text>
                   </Table.Td>
                   <Table.Td>
-                    <Text ff="var(--font-mono)" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                    <Text className="nl-mono">
                       {plugin.device_count}
                     </Text>
                   </Table.Td>
@@ -83,7 +83,14 @@ export function PluginsPage() {
             ))
           ) : (
             <Table.Tr>
-              <Table.Td colSpan={5}><Text c="dimmed" ta="center" py="md">No plugins found</Text></Table.Td>
+              <Table.Td colSpan={5}>
+                <Stack align="center" py="md" gap={4}>
+                  <Text c="dimmed">No plugins found.</Text>
+                  <Text size="xs" c="dimmed">
+                    Plugins register themselves on startup. Check the plugin worker logs if expected ones are missing.
+                  </Text>
+                </Stack>
+              </Table.Td>
             </Table.Tr>
           )}
         </Table.Tbody>

@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { AreaChart } from '@mantine/charts';
 import { Text, Center, Skeleton } from '@mantine/core';
 import { useTelemetrySeries } from '@/hooks/telemetry';
-import { useTimeRange } from '@/context/TimeRange';
+import { useTimeRange } from '@/context/timeRangeContext';
 import type { Widget, TelemetryPoint } from '@/types';
 
 interface ChartPoint {
@@ -130,19 +130,10 @@ export function ChartWidget({ widget }: { widget: Widget }) {
               padding: '6px 10px',
               fontSize: 12,
             }}>
-              <div style={{
-                color: 'var(--fg-3)',
-                fontFamily: 'var(--font-mono)',
-                fontVariantNumeric: 'tabular-nums',
-              }}>
+              <div className="nl-mono" style={{ color: 'var(--fg-3)' }}>
                 {formatTick(p._ts, rangeMinutes, true)}
               </div>
-              <div style={{
-                fontWeight: 600,
-                fontFamily: 'var(--font-mono)',
-                fontVariantNumeric: 'tabular-nums',
-                color: 'var(--fg-1)',
-              }}>
+              <div className="nl-mono" style={{ fontWeight: 600, color: 'var(--fg-1)' }}>
                 {Number(val).toFixed(2)}
               </div>
             </div>
