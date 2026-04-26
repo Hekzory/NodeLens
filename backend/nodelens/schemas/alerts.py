@@ -6,8 +6,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-
 # ── Alert Rules ─────────────────────────────────────────────────
+
 
 class AlertRuleCreate(BaseModel):
     """Request body to create an alert rule."""

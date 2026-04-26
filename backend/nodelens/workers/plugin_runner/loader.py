@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import importlib.util
 import sys
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from ruamel.yaml import YAML
 
 from nodelens.sdk.base_plugin import BasePlugin
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def load_manifest(plugin_dir: Path) -> dict[str, Any]:

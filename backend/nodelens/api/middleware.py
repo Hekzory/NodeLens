@@ -19,7 +19,7 @@ class ETagMiddleware:
         self.app = app
 
     async def __call__(self, scope, receive, send):
-        if scope["type"] != "http" or scope.get("method", "") not in ("GET", "HEAD"):
+        if scope["type"] != "http" or scope.get("method", "") not in {"GET", "HEAD"}:
             await self.app(scope, receive, send)
             return
 

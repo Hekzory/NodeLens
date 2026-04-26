@@ -89,7 +89,7 @@ async def _get_active_plugin_ids() -> set[str]:
 
 def start_plugin(plugin_dir: Path) -> subprocess.Popen:
     """Launch a single plugin as a child process."""
-    proc = subprocess.Popen(
+    return subprocess.Popen(
         [
             sys.executable,
             "-m",
@@ -99,7 +99,6 @@ def start_plugin(plugin_dir: Path) -> subprocess.Popen:
         stdout=sys.stdout,
         stderr=sys.stderr,
     )
-    return proc
 
 
 def stop_plugin(plugin_dir: Path, proc: subprocess.Popen) -> None:

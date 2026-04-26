@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 from abc import abstractmethod
+from typing import TYPE_CHECKING
 
-from nodelens.schemas.events import TelemetryEvent
 from nodelens.sdk.base_plugin import BasePlugin
+
+if TYPE_CHECKING:
+    from nodelens.schemas.events import TelemetryEvent
 
 
 class DevicePlugin(BasePlugin):

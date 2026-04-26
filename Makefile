@@ -1,4 +1,4 @@
-.PHONY: up down down-v logs logs-ingestor logs-plugins logs-api ps restart restart-api seed api-docs curl-health test pytest loadtest-up loadtest loadtest-down build
+.PHONY: up down down-v logs logs-ingestor logs-plugins logs-api ps restart restart-api seed api-docs curl-health test pytest lint lint-fix loadtest-up loadtest loadtest-down build
 
 # ── BuildKit / Compose settings ──────────────────────────────────
 export DOCKER_BUILDKIT       := 1
@@ -9,6 +9,12 @@ test:
 
 pytest:
 	cd backend && uv run pytest tests/ -v
+
+lint:
+	cd backend && uv run ruff check .
+
+lint-fix:
+	cd backend && uv run ruff check --fix .
 
 build:
 	docker compose build --parallel

@@ -47,12 +47,12 @@ class TestParseTelemetryEvent:
 
     def test_non_numeric_value_raises_valueerror(self):
         fields = {**_VALID_TELEMETRY, "value": "not-a-number"}
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="could not convert string to float"):
             _parse_event(fields)
 
     def test_invalid_timestamp_raises_valueerror(self):
         fields = {**_VALID_TELEMETRY, "timestamp": "not-a-date"}
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="(?i)isoformat"):
             _parse_event(fields)
 
 
@@ -97,7 +97,7 @@ class TestParseRegisterDevice:
     def test_missing_location_defaults_to_empty_string(self):
         fields = {k: v for k, v in self._VALID.items() if k != "location"}
         event = _parse_register_device(fields)
-        assert event.location == ""
+        assert not event.location
 
     def test_missing_required_field_raises_keyerror(self):
         fields = {k: v for k, v in self._VALID.items() if k != "name"}
@@ -124,7 +124,7 @@ class TestParseRegisterSensor:
     def test_missing_unit_defaults_to_empty_string(self):
         fields = {k: v for k, v in self._VALID.items() if k != "unit"}
         event = _parse_register_sensor(fields)
-        assert event.unit == ""
+        assert not event.unit
 
     def test_missing_value_type_defaults_to_numeric(self):
         fields = {k: v for k, v in self._VALID.items() if k != "value_type"}

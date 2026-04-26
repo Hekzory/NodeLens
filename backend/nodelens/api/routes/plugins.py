@@ -77,9 +77,9 @@ async def update_plugin(
 
     try:
         await db.commit()
-    except IntegrityError:
+    except IntegrityError as exc:
         await db.rollback()
-        raise HTTPException(status_code=409, detail="A plugin with this module name already exists")
+        raise HTTPException(status_code=409, detail="A plugin with this module name already exists") from exc
     await db.refresh(plugin)
 
     # Re-query with device count

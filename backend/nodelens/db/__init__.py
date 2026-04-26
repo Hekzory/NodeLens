@@ -7,10 +7,9 @@ async def init_models(engine: AsyncEngine) -> None:
 
     Fully idempotent — safe to call on every startup.
     """
-    from nodelens.db.base import Base
-
     # Force model registration so metadata.create_all sees every table.
     import nodelens.db.models  # noqa: F401
+    from nodelens.db.base import Base
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

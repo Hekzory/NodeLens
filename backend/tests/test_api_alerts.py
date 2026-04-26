@@ -83,10 +83,10 @@ class TestCreateAlertRuleValidation:
         assert resp.status_code == 400
         assert "Sensor" in resp.json()["detail"]
 
-    @pytest.mark.parametrize("payload,keyword", [
-        ({**_BASE_RULE, "rule_type": "aggregated", "duration_seconds": 60},                           "aggregation"),
-        ({**_BASE_RULE, "rule_type": "aggregated", "aggregation": "avg", "duration_seconds": 0},      "duration_seconds"),
-        ({k: v for k, v in _BASE_RULE.items() if k != "threshold"},                                   "threshold"),
+    @pytest.mark.parametrize(("payload", "keyword"), [
+        ({**_BASE_RULE, "rule_type": "aggregated", "duration_seconds": 60}, "aggregation"),
+        ({**_BASE_RULE, "rule_type": "aggregated", "aggregation": "avg", "duration_seconds": 0}, "duration_seconds"),
+        ({k: v for k, v in _BASE_RULE.items() if k != "threshold"}, "threshold"),
     ])
     async def test_invalid_rule_body_returns_400(self, client, mock_db, payload, keyword):
         mock_db.get = AsyncMock(return_value=MagicMock())  # sensor found

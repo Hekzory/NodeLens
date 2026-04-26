@@ -67,11 +67,11 @@ def _online_device(is_active, last_seen):
     return d
 
 
-@pytest.mark.parametrize("is_active,last_seen,expected", [
-    (False, datetime.now(UTC),                    False),  # plugin inactive
-    (True,  None,                                 False),  # never seen
-    (True,  datetime.now(UTC),                    True),   # recently seen
-    (True,  datetime(2020, 1, 1, tzinfo=UTC),     False),  # stale
+@pytest.mark.parametrize(("is_active", "last_seen", "expected"), [
+    (False, datetime.now(UTC), False),  # plugin inactive
+    (True, None, False),  # never seen
+    (True, datetime.now(UTC), True),   # recently seen
+    (True, datetime(2020, 1, 1, tzinfo=UTC), False),  # stale
 ])
 def test_compute_online(is_active, last_seen, expected):
     assert _compute_online(_online_device(is_active, last_seen)) is expected

@@ -100,5 +100,5 @@ class TestLoadPluginClass:
 
     def test_malformed_entry_point_no_colon_raises_valueerror(self, tmp_path):
         plugin_dir = _make_plugin_dir(tmp_path)
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="not enough values to unpack"):
             load_plugin_class(plugin_dir, "plugin_without_colon")

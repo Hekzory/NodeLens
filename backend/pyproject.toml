@@ -58,6 +58,48 @@ packages = ["nodelens"]
 [tool.ruff]
 target-version = "py313"
 line-length = 120
+extend-exclude = ["alembic/versions"]
+
+[tool.ruff.lint]
+select = [
+    "F",      # pyflakes — undefined names, unused imports, obvious bugs
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "B",      # flake8-bugbear — likely bugs and design problems
+    "UP",     # pyupgrade — modernize syntax for target python version
+    "PERF",   # perflint — performance anti-patterns
+    "FAST",   # ruff-fastapi — FastAPI-specific linting rules
+    "ASYNC",  # ruff-async — async/await linting rules
+    "C4",     # ruff-comprehensions — comprehensions and generator expressions
+    "DTZ",    # ruff-datetime — datetime anti-patterns
+    "FA",     # future annotations
+    "PIE",    # misc linting rules, including some flake8-pie rules
+    "PT",     # ruff-pytest — pytest-specific linting rules
+    "RET",    # ruff-return — return statement linting rules
+    "SIM",    # ruff-simplify — code simplification rules
+    "SLOT",   # ruff-slot — dataclass and class definition linting rules
+    "TC",     # ruff-type-checking — type checking linting rules
+    "FLY",    # flynt
+    "I",      # isort — import sorting rules
+    "PLE",    # pylint errors
+    "PLC",    # pylint convention rules
+    "PLR",    # pylint refactor rules
+    "PLW",    # pylint warning rules
+    "FURB"    # refurb - refactoring rules
+]
+
+ignore = [
+    "FAST002",  # dependency annotations
+    "PLC2701",
+    "PLC0415",
+    "PLR6301",   # could be a function, class method or static method
+    "PLR2004",   # magic values
+    "PLR0915",   # too many statements
+    "PLR0913",   # too many arguments
+    "PLR0912",   # too many branches
+    "PLR0917",   # too many positional arguments
+    "PLW0603",   # using global statement to update
+]
 
 [tool.ruff.lint.flake8-bugbear]
 extend-immutable-calls = ["fastapi.Depends", "fastapi.Query"]

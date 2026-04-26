@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import logging
 import uuid
-from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import or_, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -26,7 +26,11 @@ from nodelens.db.models.plugin import Plugin
 from nodelens.db.models.sensor import Sensor
 from nodelens.db.models.telemetry import TelemetryRecord
 from nodelens.db.session import async_session
-from nodelens.schemas.events import TelemetryEvent
+
+if TYPE_CHECKING:
+    from datetime import datetime
+
+    from nodelens.schemas.events import TelemetryEvent
 
 logger = logging.getLogger("nodelens.ingestor.writer")
 

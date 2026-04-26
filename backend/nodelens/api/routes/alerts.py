@@ -73,9 +73,9 @@ async def create_alert_rule(
     db.add(rule)
     try:
         await db.commit()
-    except IntegrityError:
+    except IntegrityError as exc:
         await db.rollback()
-        raise HTTPException(status_code=409, detail="Alert rule with this name already exists")
+        raise HTTPException(status_code=409, detail="Alert rule with this name already exists") from exc
     await db.refresh(rule)
     return AlertRuleRead.model_validate(rule)
 
@@ -113,9 +113,9 @@ async def update_alert_rule(
 
     try:
         await db.commit()
-    except IntegrityError:
+    except IntegrityError as exc:
         await db.rollback()
-        raise HTTPException(status_code=409, detail="Alert rule with this name already exists")
+        raise HTTPException(status_code=409, detail="Alert rule with this name already exists") from exc
     await db.refresh(rule)
     return AlertRuleRead.model_validate(rule)
 

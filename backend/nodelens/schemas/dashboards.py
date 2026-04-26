@@ -6,8 +6,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-
 # ── Widgets ─────────────────────────────────────────────────────
+
 
 class WidgetCreate(BaseModel):
     """Request body to create a widget on a dashboard."""
