@@ -75,7 +75,7 @@ query-telemetry:
 
 query-devices:
 	docker compose exec postgres psql -U nodelens -d nodelens \
-		-c "SELECT id, external_id, name, is_online, last_seen FROM devices;"
+		-c "SELECT id, external_id, name, last_seen FROM devices;"
 
 query-sensors:
 	docker compose exec postgres psql -U nodelens -d nodelens \

@@ -9,7 +9,7 @@ registration stream, then publishes random values at a fixed interval.
 import asyncio
 import logging
 import random
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from nodelens.sdk import DevicePlugin, TelemetryEvent
@@ -86,7 +86,7 @@ class DemoSenderPlugin(DevicePlugin):
             PUBLISH_INTERVAL_S,
         )
         while True:
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             for device_id, sensor_id, lo, hi in SYNTHETIC_SENSORS:
                 event = TelemetryEvent(
                     device_id=device_id,

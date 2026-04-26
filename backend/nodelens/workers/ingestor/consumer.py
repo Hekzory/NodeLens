@@ -3,7 +3,6 @@
 import asyncio
 import logging
 from datetime import datetime
-from pathlib import Path
 
 from redis.exceptions import ConnectionError as RedisConnectionError
 from redis.exceptions import TimeoutError as RedisTimeoutError
@@ -13,14 +12,13 @@ from nodelens.constants import (
     INGEST_CONSUMER_NAME,
     TELEMETRY_STREAM,
 )
+from nodelens.heartbeat import touch_heartbeat
 from nodelens.redis.client import get_redis
 from nodelens.redis.streams import ack, ensure_consumer_group, read_stream
 from nodelens.schemas.events import TelemetryEvent
 from nodelens.workers.ingestor.writer import write_batch
 
 logger = logging.getLogger("nodelens.ingestor.consumer")
-
-_HEARTBEAT = Path("/tmp/.healthcheck")
 
 
 def _parse_event(fields: dict) -> TelemetryEvent:
@@ -56,7 +54,7 @@ async def run_consumer() -> None:
             await asyncio.sleep(5)
             continue
 
-        _HEARTBEAT.touch()
+        touch_heartbeat()
 
         if not messages:
             continue

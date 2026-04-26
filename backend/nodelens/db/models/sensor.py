@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import DateTime, ForeignKey, String
 from sqlalchemy.dialects.postgresql import UUID
@@ -22,7 +22,7 @@ class Sensor(Base):
     unit: Mapped[str | None] = mapped_column(String, nullable=True)
     value_type: Mapped[str] = mapped_column(String, nullable=False, default="numeric")
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
 
     device: Mapped["Device"] = relationship(back_populates="sensors")  # noqa: F821

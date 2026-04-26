@@ -8,7 +8,8 @@ implemented.  Touches the healthcheck file so Docker sees it as alive.
 
 import logging
 import time
-from pathlib import Path
+
+from nodelens.heartbeat import touch_heartbeat
 
 logging.basicConfig(
     level="INFO",
@@ -16,14 +17,12 @@ logging.basicConfig(
 )
 logger = logging.getLogger("nodelens.alerts")
 
-_HEARTBEAT = Path("/tmp/.healthcheck")
-
 
 def main() -> None:
     logger.info("Alert worker started (not yet implemented — idling)")
     try:
         while True:
-            _HEARTBEAT.touch()
+            touch_heartbeat()
             time.sleep(30)
     except KeyboardInterrupt:
         logger.info("Alert worker stopped.")

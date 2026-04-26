@@ -7,9 +7,3 @@ engine = create_async_engine(
 )
 
 async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-
-
-async def get_session():
-    """FastAPI dependency (async generator). Workers use async_session() directly."""
-    async with async_session() as session:
-        yield session

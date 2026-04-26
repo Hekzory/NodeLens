@@ -10,7 +10,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import uuid
-from pathlib import Path
 
 from redis.exceptions import ConnectionError as RedisConnectionError
 from redis.exceptions import TimeoutError as RedisTimeoutError
@@ -23,6 +22,7 @@ from nodelens.constants import (
 )
 from nodelens.db.models import Device, Plugin, Sensor
 from nodelens.db.session import async_session
+from nodelens.heartbeat import touch_heartbeat
 from nodelens.redis.client import get_redis
 from nodelens.redis.streams import ack, ensure_consumer_group, read_stream
 from nodelens.schemas.events import (
@@ -32,8 +32,6 @@ from nodelens.schemas.events import (
 )
 
 logger = logging.getLogger("nodelens.ingestor.registration")
-
-_HEARTBEAT = Path("/tmp/.healthcheck")
 
 
 # ── Parsers ─────────────────────────────────────────────────────
@@ -98,7 +96,7 @@ async def run_registration_consumer() -> None:
             await asyncio.sleep(5)
             continue
 
-        _HEARTBEAT.touch()
+        touch_heartbeat()
 
         if not messages:
             continue
