@@ -350,13 +350,12 @@ Currently implemented parts:
 - `nodelens/schemas/events.py` → TelemetryEvent, AlertMessage, RegisterPluginEvent, RegisterDeviceEvent, RegisterSensorEvent
 - `nodelens/sdk` → plugin SDK (BasePlugin, DevicePlugin, IntegrationPlugin, PluginContext, exceptions, `run_dispatch_loop`)
 - `nodelens/workers/ingestor` → telemetry consumer, registration consumer, writer with validation
-- `nodelens/workers/alerts` → alert engine (consumer + evaluator + dispatcher); supports `instant` and `aggregated` rule types with cooldown
+- `nodelens/workers/alerts` → alert engine (consumer + evaluator + dispatcher) plus a periodic `no_data` scanner co-routine; supports `instant`, `aggregated`, and `no_data` rule kinds with cooldown
 - `nodelens/workers/plugin_runner` → plugin supervisor, loader, single-plugin subprocess runner
 
 - `tests/` → unit tests (pytest + pytest-asyncio); covers event parsing, writer validation pipeline, registration coercion, plugin loader/discovery, alert evaluator + dispatcher, email plugin, and API route logic (alerts, channels, telemetry, dashboards)
 
 Planned but not implemented yet:
-- `no_data` rule evaluation (the API accepts `condition=no_data` but the alert engine skips them — needs a periodic scanner)
 - `alembic/` → migrations
 
 ### `/plugins`
@@ -654,10 +653,10 @@ Expected rule categories:
 - compound logic
 
 Exact alert DSL / configuration schema:
-- Rules are persisted via Web Backend API as either `instant` (single realtime value vs threshold) or `aggregated` (agg function over a time window `duration_seconds`).
+- Rules are persisted via Web Backend API as either `instant` (single realtime value vs threshold), `aggregated` (agg function over a time window `duration_seconds`), or `no_data` (sensor silence detector — keyed off `condition='no_data'`, ignores `rule_type`).
 - `instant` rules compare each incoming `value` against `threshold` using `condition` ∈ {gt, lt, gte, lte, eq, neq}.
 - `aggregated` rules run `aggregation` ∈ {avg, min, max, sum, count} over `duration_seconds` of `telemetry` history for the sensor on every received event, then compare to `threshold`.
-- `condition=no_data` is accepted by the API but **not yet evaluated** — needs a periodic scanner.
+- `condition='no_data'` rules fire when the rule's sensor has produced no telemetry within `duration_seconds`. A scanner co-routine in the alerts worker runs every `NO_DATA_SCAN_INTERVAL_SECONDS` (default 5s). The API rejects `no_data` with `duration_seconds <= 0` (422) and rejects `aggregation` set together with `condition='no_data'` (422). The scanner suppresses fires when (a) the sensor has never reported any telemetry, (b) `now - scanner_start_time < duration_seconds` (post-restart grace), or (c) the engine has not processed any event within `duration_seconds` (pipeline-liveness guard). Triggered_value is set to the elapsed silence in seconds. Re-fires obey `cooldown_seconds`.
 
 Cooldown / acknowledgement behavior:
 - Cooldown is enforced by querying `MAX(alert_history.triggered_at) WHERE rule_id=?` on every potential fire; if the last fire was within `cooldown_seconds`, the fire is suppressed.
@@ -716,6 +715,7 @@ Current relevant env vars:
 - `REDIS_URL`
 - `LOG_LEVEL`
 - `PLUGINS_DIR`
+- `NO_DATA_SCAN_INTERVAL_SECONDS` (alerts worker; default 5)
 
 Current useful commands:
 - `make up`
@@ -744,7 +744,6 @@ Do not assume any of the following already exist unless they are explicitly impl
 - finalized Redis/event contracts beyond telemetry, registration, and alert-dispatch
 - plugin hot-reloading
 - plugin security sandboxing
-- `no_data` rule evaluation (API accepts the condition but the engine doesn't fire on it yet)
 - retries / dead-letter for failed integration `send()`
 - per-channel message templating
 - observability stack
@@ -787,7 +786,7 @@ Current implemented slice:
 - Redis Streams (telemetry, registration, alert dispatch)
 - Web Backend (FastAPI, 7 domains: health, plugins, devices, telemetry, alerts, channels, dashboards)
 - Ingestor worker (telemetry consumer + registration consumer)
-- Alert worker (instant + aggregated rule evaluation, cooldown, dispatch via Redis stream)
+- Alert worker (instant + aggregated event-driven evaluation plus a periodic `no_data` scanner with restart-grace and pipeline-liveness guards, cooldown, dispatch via Redis stream)
 - Plugins worker (supervisor + subprocess launcher)
 - Plugin SDK (BasePlugin, DevicePlugin, IntegrationPlugin, PluginContext, `run_dispatch_loop`)
 - Built-in `demo_sender` device plugin (generates synthetic telemetry)

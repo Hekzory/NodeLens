@@ -161,7 +161,7 @@ function RulesTab() {
                 <Table.Td>
                   <Text size="sm" className="nl-mono">
                     {rule.condition === 'no_data'
-                      ? 'no_data'
+                      ? `no data >${rule.duration_seconds}s`
                       : rule.rule_type === 'aggregated'
                         ? `${rule.aggregation}() ${rule.condition} ${rule.threshold}`
                         : `value ${rule.condition} ${rule.threshold}`}

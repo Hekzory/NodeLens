@@ -54,18 +54,17 @@ make down-v          # wipe postgres volume
 
 ## Alerting
 
-Two rule types are supported today:
+Three rule kinds are supported:
 
 - **Instant** — every incoming reading is compared to a `threshold` with one of `gt`, `lt`, `gte`, `lte`, `eq`, `neq`.
 - **Aggregated** — `avg|min|max|sum|count` over a configurable time window (`duration_seconds`) is compared to a threshold on each new event.
+- **No data** (`condition=no_data`) — fires when the rule's sensor has produced no telemetry within `duration_seconds`. A periodic scanner (`NO_DATA_SCAN_INTERVAL_SECONDS`, default 5s) runs alongside the event-driven evaluator inside the `alerts` container. To prevent spurious fires, the scanner additionally requires (a) it has been running at least `duration_seconds` since process start (so a fresh container restart cannot mass-fire on accumulated silence) and (b) the engine has processed at least one telemetry event within `duration_seconds` (so a stalled pipeline does not look like silent sensors). Rules whose sensor has never reported any telemetry are not fired (treated as not-yet-deployed).
 
 Each rule has a `cooldown_seconds` window enforced via the `alert_history` table — re-fires are suppressed until the cooldown has elapsed since the last fire. Fired alerts can be acknowledged from the History tab.
 
 A rule is linked to one or more **notification channels** (many-to-many). A channel binds an integration plugin (e.g. `email`) to a destination config (e.g. `to`, SMTP host, app password). When a rule fires, one event per active linked channel is published to the `alert_dispatch_events` Redis stream; each integration plugin reads its own consumer group on that stream and calls its `send()` method.
 
 Built-in integration: **`email`** — plain SMTP via `aiosmtplib`. Supports MX auto-discovery (leave `smtp_host` blank), authenticated TLS submission (port 465 / `use_tls`), or STARTTLS (port 587 / `start_tls`). For real delivery to a Gmail/Yandex/Outlook inbox, configure your provider's submission server with an app password.
-
-`condition=no_data` is accepted by the API but not yet evaluated — it requires a periodic scanner; see AGENTS.md for the deferred-work list.
 
 ## Plugin system
 

@@ -119,6 +119,10 @@ def _event(value: float = 0.0):
 
 class TestEvaluateInstant:
     async def test_no_data_condition_returns_none(self):
+        # The event-driven evaluator skips no_data; the periodic scanner
+        # (no_data_scanner.py) owns evaluation for that condition. Receiving an
+        # event also proves the sensor is not silent, so firing here would be
+        # nonsensical.
         rule = _make_rule(condition="no_data")
         session = AsyncMock()
         result = await evaluate(session, rule, _event(0.0))
@@ -173,6 +177,9 @@ class TestEvaluateAggregated:
         assert "avg(value)" in decision.message
 
     async def test_aggregated_no_data_returns_none(self):
+        # Aggregated rule whose window has no telemetry — agg returns None,
+        # `fires()` short-circuits, no decision. Distinct from the
+        # condition='no_data' code path which is owned by the scanner.
         rule = _make_rule(
             rule_type="aggregated",
             condition="gt",

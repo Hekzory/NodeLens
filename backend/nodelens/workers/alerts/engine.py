@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from redis.exceptions import ConnectionError as RedisConnectionError
@@ -25,6 +26,7 @@ from nodelens.workers.alerts.evaluator import (
     evaluate,
     load_active_rules_for_sensor,
 )
+from nodelens.workers.alerts.liveness import mark_event_processed
 
 if TYPE_CHECKING:
     from nodelens.schemas.events import TelemetryEvent
@@ -95,6 +97,10 @@ async def run_engine() -> None:
 
         if bad_ids:
             await ack(r, TELEMETRY_STREAM, ALERT_CONSUMER_GROUP, *bad_ids)
+
+        if events:
+            # Pipeline-liveness signal for the no_data scanner.
+            mark_event_processed(datetime.now(UTC))
 
         for event in events:
             try:

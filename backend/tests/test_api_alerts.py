@@ -101,10 +101,38 @@ class TestCreateAlertRuleValidation:
             "sensor_id": str(SENSOR_ID),
             "rule_type": "instant",
             "condition": "no_data",
+            "duration_seconds": 60,
             # no threshold
         }
         resp = await client.post("/api/alerts/rules", json=payload)
         assert resp.status_code == 201
+
+    async def test_nodata_condition_with_zero_duration_is_rejected(self, client, mock_db):
+        mock_db.get = AsyncMock(return_value=MagicMock())
+        payload = {
+            "name": "Bad No Data Rule",
+            "sensor_id": str(SENSOR_ID),
+            "rule_type": "instant",
+            "condition": "no_data",
+            # duration_seconds defaults to 0 → invalid
+        }
+        resp = await client.post("/api/alerts/rules", json=payload)
+        assert resp.status_code == 422
+        assert "duration_seconds" in resp.text
+
+    async def test_nodata_condition_with_aggregation_is_rejected(self, client, mock_db):
+        mock_db.get = AsyncMock(return_value=MagicMock())
+        payload = {
+            "name": "Conflicting No Data Rule",
+            "sensor_id": str(SENSOR_ID),
+            "rule_type": "instant",
+            "condition": "no_data",
+            "duration_seconds": 60,
+            "aggregation": "avg",
+        }
+        resp = await client.post("/api/alerts/rules", json=payload)
+        assert resp.status_code == 422
+        assert "aggregation" in resp.text
 
     async def test_valid_instant_rule_returns_201(self, client, mock_db):
         mock_db.get = AsyncMock(return_value=MagicMock())
@@ -258,6 +286,40 @@ class TestUpdateAlertRule:
         resp = await client.patch(f"/api/alerts/rules/{rule.id}", json={"name": "Taken Name"})
         assert resp.status_code == 409
         assert "already exists" in resp.json()["detail"]
+
+    async def test_patch_to_nodata_with_existing_duration_succeeds(self, client, mock_db):
+        rule = _make_rule()
+        rule.duration_seconds = 60  # already set on existing rule
+        mock_db.get = AsyncMock(return_value=rule)
+        resp = await client.patch(
+            f"/api/alerts/rules/{rule.id}",
+            json={"condition": "no_data"},
+        )
+        assert resp.status_code == 200
+        assert rule.condition == "no_data"
+
+    async def test_patch_to_nodata_with_zero_duration_rejected(self, client, mock_db):
+        rule = _make_rule()
+        rule.duration_seconds = 0
+        mock_db.get = AsyncMock(return_value=rule)
+        resp = await client.patch(
+            f"/api/alerts/rules/{rule.id}",
+            json={"condition": "no_data"},
+        )
+        assert resp.status_code == 400
+        assert "duration_seconds" in resp.json()["detail"]
+
+    async def test_patch_to_nodata_with_aggregation_rejected(self, client, mock_db):
+        rule = _make_rule()
+        rule.duration_seconds = 60
+        rule.aggregation = "avg"
+        mock_db.get = AsyncMock(return_value=rule)
+        resp = await client.patch(
+            f"/api/alerts/rules/{rule.id}",
+            json={"condition": "no_data"},
+        )
+        assert resp.status_code == 400
+        assert "aggregation" in resp.json()["detail"]
 
 
 # ── Delete alert rule ─────────────────────────────────────────────

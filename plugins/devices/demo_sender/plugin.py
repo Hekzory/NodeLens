@@ -3,7 +3,7 @@ Demo device plugin — generates synthetic telemetry data.
 
 Replaces the old ``fake_publisher`` that was embedded in the ingestor.
 Registers its own plugin record, devices, and sensors via the
-registration stream, then publishes random values at a fixed interval.
+registration stream, then publishes random values at per-sensor cadences.
 """
 
 import asyncio
@@ -28,13 +28,15 @@ SENSOR_TEMP_2 = "30000000-0000-0000-0000-000000000003"
 SENSOR_PRESS_2 = "30000000-0000-0000-0000-000000000004"
 SENSOR_BATT_3 = "30000000-0000-0000-0000-000000000005"
 
-# (device_id, sensor_id, value_min, value_max)
-SYNTHETIC_SENSORS: list[tuple[str, str, float, float]] = [
-    (DEVICE_1, SENSOR_TEMP_1, 18.0, 28.0),
-    (DEVICE_1, SENSOR_HUM_1, 30.0, 70.0),
-    (DEVICE_2, SENSOR_TEMP_2, 15.0, 35.0),
-    (DEVICE_2, SENSOR_PRESS_2, 990.0, 1030.0),
-    (DEVICE_3, SENSOR_BATT_3, 3.0, 4.2),
+# (device_id, sensor_id, value_min, value_max, interval_seconds)
+# Battery is intentionally slow (15s gap) so a no_data rule with
+# duration_seconds in the 10–14s range fires reliably between samples.
+SYNTHETIC_SENSORS: list[tuple[str, str, float, float, float]] = [
+    (DEVICE_1, SENSOR_TEMP_1, 18.0, 28.0, 3.0),
+    (DEVICE_1, SENSOR_HUM_1, 30.0, 70.0, 3.0),
+    (DEVICE_2, SENSOR_TEMP_2, 15.0, 35.0, 3.0),
+    (DEVICE_2, SENSOR_PRESS_2, 990.0, 1030.0, 3.0),
+    (DEVICE_3, SENSOR_BATT_3, 3.0, 4.2, 15.0),
 ]
 
 DEVICES = [
@@ -57,7 +59,7 @@ SENSORS = [
     {"sensor_id": SENSOR_BATT_3, "device_id": DEVICE_3, "key": "battery", "name": "Battery Voltage", "unit": "V"},
 ]
 
-PUBLISH_INTERVAL_S = 3.0
+TICK_INTERVAL_S = 1.0
 REGISTRATION_SETTLE_S = 3.0
 
 
@@ -79,15 +81,20 @@ class DemoSenderPlugin(DevicePlugin):
         )
         await asyncio.sleep(REGISTRATION_SETTLE_S)
 
-        # ── 2. Publish synthetic telemetry ──────────────────────
+        # ── 2. Publish synthetic telemetry on per-sensor cadences ─
         logger.info(
-            "Publishing synthetic telemetry — %d sensors every %.1fs",
+            "Publishing synthetic telemetry — %d sensors, intervals %s s",
             len(SYNTHETIC_SENSORS),
-            PUBLISH_INTERVAL_S,
+            [s[4] for s in SYNTHETIC_SENSORS],
         )
+        last_emit_at: dict[str, datetime] = {}
         while True:
             now = datetime.now(UTC)
-            for device_id, sensor_id, lo, hi in SYNTHETIC_SENSORS:
+            emitted = 0
+            for device_id, sensor_id, lo, hi, interval in SYNTHETIC_SENSORS:
+                last = last_emit_at.get(sensor_id)
+                if last is not None and (now - last).total_seconds() < interval:
+                    continue
                 event = TelemetryEvent(
                     device_id=device_id,
                     sensor_id=sensor_id,
@@ -95,8 +102,11 @@ class DemoSenderPlugin(DevicePlugin):
                     timestamp=now,
                 )
                 await self.ctx.publish_telemetry(event)
-            logger.debug("Published %d synthetic events.", len(SYNTHETIC_SENSORS))
-            await asyncio.sleep(PUBLISH_INTERVAL_S)
+                last_emit_at[sensor_id] = now
+                emitted += 1
+            if emitted:
+                logger.debug("Published %d synthetic events.", emitted)
+            await asyncio.sleep(TICK_INTERVAL_S)
 
     async def stop(self) -> None:
         logger.info("Demo sender stopping.")

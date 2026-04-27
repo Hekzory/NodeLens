@@ -109,7 +109,9 @@ async def evaluate(
     now = datetime.now(UTC)
 
     if rule.condition == "no_data":
-        # Deferred — see plan §"Out of scope".
+        # The event-driven path skips no_data; the periodic no_data_scanner
+        # owns these rules. Emitting here would also be useless because the
+        # event we're processing proves the sensor is *not* silent.
         return None
     if await is_in_cooldown(session, rule, now):
         return None

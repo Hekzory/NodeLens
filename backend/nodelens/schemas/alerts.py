@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 # ── Alert Rules ─────────────────────────────────────────────────
 
@@ -23,6 +23,17 @@ class AlertRuleCreate(BaseModel):
     cooldown_seconds: int = Field(default=300, ge=0)
     severity: Literal["info", "warning", "critical"] = "warning"
     is_active: bool = True
+
+    @model_validator(mode="after")
+    def _validate_no_data_invariants(self) -> "AlertRuleCreate":
+        if self.condition == "no_data":
+            if self.duration_seconds <= 0:
+                raise ValueError(
+                    "no_data rules require duration_seconds > 0 (the silence window)"
+                )
+            if self.aggregation is not None:
+                raise ValueError("aggregation is not allowed for no_data rules")
+        return self
 
 
 class AlertRuleUpdate(BaseModel):

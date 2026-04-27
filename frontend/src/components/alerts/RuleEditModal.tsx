@@ -70,7 +70,14 @@ const CONDITIONS = [
   { value: 'lte', label: '≤ (less or equal)' },
   { value: 'eq', label: '= (equal)' },
   { value: 'neq', label: '≠ (not equal)' },
-  { value: 'no_data', label: 'no data (not yet evaluated)' },
+];
+
+type RuleKind = 'instant' | 'aggregated' | 'no_data';
+
+const RULE_KINDS: { label: string; value: RuleKind }[] = [
+  { label: 'Instant', value: 'instant' },
+  { label: 'Aggregated', value: 'aggregated' },
+  { label: 'No data', value: 'no_data' },
 ];
 
 const AGGREGATIONS = [
@@ -119,6 +126,29 @@ export function RuleEditModal({ opened, onClose, onSubmit, initial, isPending }:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initial, opened]);
 
+  useEffect(() => {
+    if (form.values.condition === 'no_data' && form.values.duration_seconds <= 0) {
+      form.setFieldValue('duration_seconds', 300);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.values.condition]);
+
+  const ruleKind: RuleKind =
+    form.values.condition === 'no_data' ? 'no_data' : form.values.rule_type;
+
+  const setRuleKind = (kind: RuleKind) => {
+    if (kind === 'no_data') {
+      form.setFieldValue('rule_type', 'instant');
+      form.setFieldValue('condition', 'no_data');
+      form.setFieldValue('aggregation', '');
+    } else {
+      form.setFieldValue('rule_type', kind);
+      if (form.values.condition === 'no_data') {
+        form.setFieldValue('condition', 'gt');
+      }
+    }
+  };
+
   const handleSubmit = form.onSubmit((values) => {
     const data: AlertRuleCreate = {
       name: values.name,
@@ -133,7 +163,10 @@ export function RuleEditModal({ opened, onClose, onSubmit, initial, isPending }:
             ? null
             : Number(values.threshold),
       aggregation: values.rule_type === 'aggregated' ? (values.aggregation || null) : null,
-      duration_seconds: values.rule_type === 'aggregated' ? values.duration_seconds : 0,
+      duration_seconds:
+        values.rule_type === 'aggregated' || values.condition === 'no_data'
+          ? values.duration_seconds
+          : 0,
       cooldown_seconds: values.cooldown_seconds,
       severity: values.severity,
       is_active: values.is_active,
@@ -199,23 +232,22 @@ export function RuleEditModal({ opened, onClose, onSubmit, initial, isPending }:
             <Text size="sm" fw={500} mb={4}>Rule type</Text>
             <SegmentedControl
               fullWidth
-              data={[
-                { label: 'Instant', value: 'instant' },
-                { label: 'Aggregated', value: 'aggregated' },
-              ]}
-              value={form.values.rule_type}
-              onChange={(v) => form.setFieldValue('rule_type', v as AlertRuleType)}
+              data={RULE_KINDS}
+              value={ruleKind}
+              onChange={(v) => setRuleKind(v as RuleKind)}
             />
           </div>
 
-          <Select
-            label="Condition"
-            data={CONDITIONS}
-            value={form.values.condition}
-            onChange={(v) => form.setFieldValue('condition', (v ?? 'gt') as AlertCondition)}
-          />
+          {ruleKind !== 'no_data' && (
+            <Select
+              label="Condition"
+              data={CONDITIONS}
+              value={form.values.condition}
+              onChange={(v) => form.setFieldValue('condition', (v ?? 'gt') as AlertCondition)}
+            />
+          )}
 
-          {form.values.condition !== 'no_data' && (
+          {ruleKind !== 'no_data' && (
             <NumberInput
               label="Threshold"
               required
@@ -225,24 +257,30 @@ export function RuleEditModal({ opened, onClose, onSubmit, initial, isPending }:
             />
           )}
 
-          {form.values.rule_type === 'aggregated' && (
-            <>
-              <Select
-                label="Aggregation"
-                required
-                data={AGGREGATIONS}
-                value={form.values.aggregation || null}
-                onChange={(v) =>
-                  form.setFieldValue('aggregation', (v ?? '') as AlertAggregation | '')
-                }
-              />
-              <NumberInput
-                label="Window (seconds)"
-                required
-                min={1}
-                {...form.getInputProps('duration_seconds')}
-              />
-            </>
+          {ruleKind === 'aggregated' && (
+            <Select
+              label="Aggregation"
+              required
+              data={AGGREGATIONS}
+              value={form.values.aggregation || null}
+              onChange={(v) =>
+                form.setFieldValue('aggregation', (v ?? '') as AlertAggregation | '')
+              }
+            />
+          )}
+
+          {(ruleKind === 'aggregated' || ruleKind === 'no_data') && (
+            <NumberInput
+              label="Window (seconds)"
+              description={
+                ruleKind === 'no_data'
+                  ? 'Fire when the sensor has been silent for this many seconds'
+                  : undefined
+              }
+              required
+              min={1}
+              {...form.getInputProps('duration_seconds')}
+            />
           )}
 
           <NumberInput

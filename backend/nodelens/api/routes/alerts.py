@@ -156,6 +156,20 @@ async def update_alert_rule(
     for field, value in update_data.items():
         setattr(rule, field, value)
 
+    # Validate the merged final state for no_data invariants. Pydantic
+    # cannot do this on a partial schema since it only sees the patch.
+    if rule.condition == "no_data":
+        if rule.duration_seconds is None or rule.duration_seconds <= 0:
+            raise HTTPException(
+                status_code=400,
+                detail="no_data rules require duration_seconds > 0",
+            )
+        if rule.aggregation is not None:
+            raise HTTPException(
+                status_code=400,
+                detail="aggregation is not allowed for no_data rules",
+            )
+
     try:
         await db.commit()
     except IntegrityError as exc:

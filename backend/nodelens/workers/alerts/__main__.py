@@ -28,10 +28,13 @@ async def main() -> None:
     logger.info("Database schema ready (alerts).")
 
     from nodelens.workers.alerts.engine import run_engine
+    from nodelens.workers.alerts.no_data_scanner import run_no_data_scanner
 
-    logger.info("Starting alert engine …")
+    logger.info("Starting alert engine and no_data scanner …")
     try:
-        await run_engine()
+        async with asyncio.TaskGroup() as tg:
+            tg.create_task(run_engine(), name="alert-engine")
+            tg.create_task(run_no_data_scanner(), name="no-data-scanner")
     finally:
         from nodelens.redis.client import close_redis
 
