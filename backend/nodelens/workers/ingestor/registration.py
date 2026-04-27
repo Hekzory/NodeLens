@@ -44,6 +44,7 @@ def _parse_register_plugin(fields: dict) -> RegisterPluginEvent:
         module_name=fields["module_name"],
         display_name=fields["display_name"],
         version=fields["version"],
+        description=fields.get("description", ""),
     )
 
 
@@ -133,11 +134,13 @@ async def run_registration_consumer() -> None:
 
 async def _upsert_plugin(event: RegisterPluginEvent) -> None:
     plugin_id = uuid.UUID(event.plugin_id)
+    description = event.description or None
     values = {
         "id": plugin_id,
         "plugin_type": event.plugin_type,
         "module_name": event.module_name,
         "display_name": event.display_name,
+        "description": description,
         "version": event.version,
         "is_active": True,
     }
@@ -149,6 +152,7 @@ async def _upsert_plugin(event: RegisterPluginEvent) -> None:
                 index_elements=["id"],
                 set_={
                     "display_name": values["display_name"],
+                    "description": values["description"],
                     "version": values["version"],
                 },
             )

@@ -39,6 +39,7 @@ async def _run(plugin_dir: Path) -> None:
         module_name=manifest["name"],
         display_name=manifest["display_name"],
         version=manifest["version"],
+        description=(manifest.get("description") or "").strip(),
     )
     await ctx.connect()
     plugin._set_context(ctx)

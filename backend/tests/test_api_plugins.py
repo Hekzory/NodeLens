@@ -31,12 +31,13 @@ async def client(mock_db):
     _app.dependency_overrides.clear()
 
 
-def _make_plugin():
+def _make_plugin(description: str | None = "Demo plugin description"):
     p = MagicMock()
     p.id = PLUGIN_ID
     p.plugin_type = "device"
     p.module_name = "demo_sender"
     p.display_name = "Demo Sender"
+    p.description = description
     p.version = "1.0.0"
     p.is_active = True
     p.created_at = datetime(2024, 1, 1, tzinfo=UTC)
@@ -78,6 +79,17 @@ class TestListPlugins:
         assert len(body) == 1
         assert body[0]["module_name"] == "demo_sender"
         assert body[0]["device_count"] == 3
+        assert body[0]["description"] == "Demo plugin description"
+
+    async def test_null_description_passes_through(self, client, mock_db):
+        plugin = _make_plugin(description=None)
+        result = make_execute_result()
+        result.all.return_value = [(plugin, 0)]
+        mock_db.execute = AsyncMock(return_value=result)
+
+        resp = await client.get("/api/plugins")
+        assert resp.status_code == 200
+        assert resp.json()[0]["description"] is None
 
 
 class TestGetPlugin:
@@ -92,6 +104,7 @@ class TestGetPlugin:
         body = resp.json()
         assert body["module_name"] == "demo_sender"
         assert body["device_count"] == 2
+        assert body["description"] == "Demo plugin description"
 
     async def test_not_found_returns_404(self, client, mock_db):
         result = make_execute_result()

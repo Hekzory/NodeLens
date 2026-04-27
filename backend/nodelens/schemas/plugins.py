@@ -15,6 +15,7 @@ class PluginRead(BaseModel):
     plugin_type: str
     module_name: str
     display_name: str
+    description: str | None = None
     version: str
     is_active: bool
     created_at: datetime

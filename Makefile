@@ -1,4 +1,4 @@
-.PHONY: up down down-v logs logs-ingestor logs-plugins logs-api logs-alerts ps restart restart-api restart-alerts seed api-docs curl-health test pytest lint lint-fix loadtest-up loadtest loadtest-down build
+.PHONY: up down down-v logs logs-ingestor logs-plugins logs-api logs-alerts ps restart restart-api restart-alerts seed api-docs curl-health test pytest lint lint-fix loadtest-up loadtest loadtest-down build migrate migration migrate-down
 
 # ── BuildKit / Compose settings ──────────────────────────────────
 export DOCKER_BUILDKIT       := 1
@@ -97,6 +97,37 @@ query-sensors:
 query-plugins:
 	docker compose exec postgres psql -U nodelens -d nodelens \
 		-c "SELECT id, module_name, display_name, version, is_active FROM plugins;"
+
+# ── Database migrations (Alembic) ──────────────────────────────────
+# The ingestor auto-runs `alembic upgrade head` on startup, so a plain
+# `make restart` (or `make up` after a pull) is usually enough. The
+# targets below are for the cases where you want explicit control.
+
+# Apply pending migrations now, without restarting workers.
+# Use after: pulling code that adds a new versions/*.py and you don't
+# want to wait for the next ingestor restart. Idempotent — no-op if
+# the DB is already at head.
+migrate:
+	docker compose exec ingestor alembic upgrade head
+
+# Generate a new migration file from current model changes.
+# Use after: editing a SQLAlchemy model (add/drop/rename a column,
+# change nullability, etc.). Alembic diffs your models against the
+# live DB and writes a versions/<rev>_<slug>.py with the upgrade()
+# and downgrade() ops pre-filled. ALWAYS read the generated file
+# before committing — autogenerate misses TimescaleDB hypertables,
+# server defaults, and some constraint changes.
+# Example: make migration MSG="add severity to alert_rules"
+migration:
+	@if [ -z "$(MSG)" ]; then echo "Usage: make migration MSG=\"description\""; exit 1; fi
+	docker compose exec ingestor alembic revision --autogenerate -m "$(MSG)"
+
+# Roll back the most recent migration.
+# Use after: applying a migration you regret (bad autogenerate, wrong
+# column type, etc.). Runs the migration's downgrade() function and
+# moves alembic_version back one step. Then fix the model + regenerate.
+migrate-down:
+	docker compose exec ingestor alembic downgrade -1
 
 redis-stream:
 	docker compose exec redis redis-cli XLEN telemetry_events

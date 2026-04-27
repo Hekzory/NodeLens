@@ -17,6 +17,7 @@ class Plugin(Base):
     plugin_type: Mapped[str] = mapped_column(String, nullable=False)
     module_name: Mapped[str] = mapped_column(String, nullable=False, unique=True)
     display_name: Mapped[str] = mapped_column(String, nullable=False)
+    description: Mapped[str | None] = mapped_column(String, nullable=True)
     version: Mapped[str] = mapped_column(String, nullable=False, default="0.0.0")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(

@@ -356,9 +356,7 @@ Currently implemented parts:
 - `nodelens/workers/plugin_runner` → plugin supervisor, loader, single-plugin subprocess runner
 
 - `tests/` → unit tests (pytest + pytest-asyncio); covers event parsing, writer validation pipeline, registration coercion, plugin loader/discovery, alert evaluator + dispatcher, email plugin, and API route logic (alerts, channels, telemetry, dashboards)
-
-Planned but not implemented yet:
-- `alembic/` → migrations
+- `alembic/` → schema migrations (async-aware env.py reading `DATABASE_URL` from `nodelens.config.settings`). The ingestor runs `alembic upgrade head` on startup via `init_models`. Pre-Alembic deployments are auto-stamped to baseline before upgrade, so existing DBs upgrade cleanly without recreating tables.
 
 ### `/plugins`
 Drop-in plugins:
@@ -739,6 +737,7 @@ Current useful commands:
 - `make query-plugins`
 - `make redis-stream`
 - `make redis-registration`
+- `make migrate` / `make migration MSG="..."` / `make migrate-down` (Alembic schema migrations)
 
 Future full 8-service compose layout:
 - 7 of the 8 target services run today (`postgres`, `redis`, `api`, `ingestor`, `alerts`, `plugins`, `frontend`). The missing one is the **MQTT broker** (Eclipse Mosquitto) — it's in the architecture but not yet wired into compose; no MQTT device plugin exists yet either.

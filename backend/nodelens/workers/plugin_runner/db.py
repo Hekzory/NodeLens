@@ -51,6 +51,7 @@ def ensure_plugin_rows(manifests: dict[str, dict]) -> None:
 
     with Session(_engine) as session, session.begin():
         for plugin_id, manifest in manifests.items():
+            description = (manifest.get("description") or "").strip() or None
             stmt = (
                 pg_insert(Plugin)
                 .values(
@@ -58,6 +59,7 @@ def ensure_plugin_rows(manifests: dict[str, dict]) -> None:
                     plugin_type=manifest["type"],
                     module_name=manifest["name"],
                     display_name=manifest["display_name"],
+                    description=description,
                     version=manifest["version"],
                     is_active=True,
                 )
@@ -65,6 +67,7 @@ def ensure_plugin_rows(manifests: dict[str, dict]) -> None:
                     index_elements=["id"],
                     set_={
                         "display_name": manifest["display_name"],
+                        "description": description,
                         "version": manifest["version"],
                     },
                 )

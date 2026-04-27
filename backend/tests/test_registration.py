@@ -7,7 +7,11 @@ to NULL (Python None) before being written to nullable DB columns.
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import nodelens.workers.ingestor.registration as reg_module
-from nodelens.schemas.events import RegisterDeviceEvent, RegisterSensorEvent
+from nodelens.schemas.events import (
+    RegisterDeviceEvent,
+    RegisterPluginEvent,
+    RegisterSensorEvent,
+)
 from tests.conftest import DEVICE_ID_STR, PLUGIN_ID_STR, SENSOR_ID_STR
 
 
@@ -75,6 +79,44 @@ class TestUpsertDeviceCoercion:
             await reg_module._upsert_device(event)
 
         assert captured.get("location") == "living-room"
+
+
+class TestUpsertPluginCoercion:
+    async def test_empty_description_becomes_none(self):
+        event = RegisterPluginEvent(
+            plugin_id=PLUGIN_ID_STR,
+            plugin_type="device",
+            module_name="demo",
+            display_name="Demo",
+            version="0.1.0",
+            description="",
+        )
+        captured: dict = {}
+        session = _make_session()
+
+        with patch.object(reg_module, "async_session", return_value=session), \
+             patch.object(reg_module, "pg_insert", _capturing_pg_insert(captured)):
+            await reg_module._upsert_plugin(event)
+
+        assert captured.get("description") is None
+
+    async def test_nonempty_description_is_preserved(self):
+        event = RegisterPluginEvent(
+            plugin_id=PLUGIN_ID_STR,
+            plugin_type="device",
+            module_name="demo",
+            display_name="Demo",
+            version="0.1.0",
+            description="Built-in demo plugin.",
+        )
+        captured: dict = {}
+        session = _make_session()
+
+        with patch.object(reg_module, "async_session", return_value=session), \
+             patch.object(reg_module, "pg_insert", _capturing_pg_insert(captured)):
+            await reg_module._upsert_plugin(event)
+
+        assert captured.get("description") == "Built-in demo plugin."
 
 
 class TestUpsertSensorCoercion:

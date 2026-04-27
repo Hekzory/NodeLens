@@ -1,23 +1,44 @@
+import asyncio
+from pathlib import Path
+
+from alembic.config import Config
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from alembic import command
 from nodelens.config import settings
 
 
+def _alembic_config() -> Config:
+    """Build an Alembic Config pointing at backend/alembic.ini."""
+    backend_root = Path(__file__).resolve().parent.parent.parent
+    cfg = Config(str(backend_root / "alembic.ini"))
+    cfg.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+    return cfg
+
+
 async def init_models(engine: AsyncEngine) -> None:
-    """Create all tables and convert telemetry to a TimescaleDB hypertable.
+    """Bring the database schema up to date via Alembic.
 
-    Fully idempotent — safe to call on every startup.
+    Auto-stamps existing pre-Alembic deployments to the baseline so the first
+    real migration runs cleanly. Idempotent: safe to call on every startup.
     """
-    # Force model registration so metadata.create_all sees every table.
-    import nodelens.db.models  # noqa: F401
-    from nodelens.db.base import Base
+    cfg = _alembic_config()
 
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-        await conn.execute(
-            text("SELECT create_hypertable('telemetry', 'time', if_not_exists => TRUE);")
+    # Pre-Alembic deployments: schema exists, alembic_version doesn't.
+    # Stamp baseline first so the upgrade only runs migrations after it.
+    async with engine.connect() as conn:
+        has_alembic = await conn.scalar(
+            text("SELECT to_regclass('public.alembic_version') IS NOT NULL")
         )
+        has_plugins = await conn.scalar(
+            text("SELECT to_regclass('public.plugins') IS NOT NULL")
+        )
+
+    if has_plugins and not has_alembic:
+        await asyncio.to_thread(command.stamp, cfg, "0001_baseline")
+
+    await asyncio.to_thread(command.upgrade, cfg, "head")
 
 
 async def apply_storage_policies(engine: AsyncEngine) -> None:

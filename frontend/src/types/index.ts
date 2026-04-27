@@ -4,6 +4,7 @@ export interface Plugin {
   plugin_type: string;
   module_name: string;
   display_name: string;
+  description: string | null;
   version: string;
   is_active: boolean;
   created_at: string;

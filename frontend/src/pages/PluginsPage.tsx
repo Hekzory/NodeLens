@@ -1,13 +1,13 @@
 import { Fragment, useState } from 'react';
-import { Title, Table, Badge, Switch, Text, Collapse, Skeleton, Stack, Box } from '@mantine/core';
+import { Title, Table, Badge, Switch, Text, Collapse, Skeleton, Stack } from '@mantine/core';
 import { usePlugins, usePluginDevices, useTogglePlugin } from '@/hooks/plugins';
 
 function PluginDevices({ pluginId }: { pluginId: string }) {
   const { data: devices, isLoading } = usePluginDevices(pluginId);
-  if (isLoading) return <Box p="xs"><Skeleton h={16} w={200} /></Box>;
-  if (!devices?.length) return <Text size="sm" c="dimmed" p="xs">No devices</Text>;
+  if (isLoading) return <Skeleton h={16} w={200} />;
+  if (!devices?.length) return <Text size="sm" c="dimmed">No devices</Text>;
   return (
-    <Box p="xs">
+    <Stack gap={2}>
       {devices.map((d) => (
         <Text key={d.id} size="sm">
           {d.name}
@@ -17,7 +17,7 @@ function PluginDevices({ pluginId }: { pluginId: string }) {
           </Badge>
         </Text>
       ))}
-    </Box>
+    </Stack>
   );
 }
 
@@ -61,9 +61,11 @@ export function PluginsPage() {
                     </Text>
                   </Table.Td>
                   <Table.Td>
-                    <Text className="nl-mono">
-                      {plugin.device_count}
-                    </Text>
+                    {plugin.plugin_type === 'device' ? (
+                      <Text className="nl-mono">{plugin.device_count}</Text>
+                    ) : (
+                      <Text c="dimmed">—</Text>
+                    )}
                   </Table.Td>
                   <Table.Td onClick={(e) => e.stopPropagation()}>
                     <Switch
@@ -75,7 +77,21 @@ export function PluginsPage() {
                 <Table.Tr>
                   <Table.Td colSpan={5} p={0}>
                     <Collapse expanded={expanded === plugin.id}>
-                      <PluginDevices pluginId={plugin.id} />
+                      <Stack gap={6} p="xs">
+                        {plugin.description && (
+                          <Text size="sm" c="dimmed" maw={720} style={{ whiteSpace: 'pre-wrap' }}>
+                            {plugin.description}
+                          </Text>
+                        )}
+                        <Text size="xs" c="dimmed" className="nl-mono">
+                          {plugin.module_name}
+                        </Text>
+                        {plugin.plugin_type === 'device' ? (
+                          <PluginDevices pluginId={plugin.id} />
+                        ) : (
+                          <Text size="sm" c="dimmed">No devices — this is an integration plugin.</Text>
+                        )}
+                      </Stack>
                     </Collapse>
                   </Table.Td>
                 </Table.Tr>

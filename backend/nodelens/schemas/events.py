@@ -39,6 +39,7 @@ class RegisterPluginEvent:
     module_name: str
     display_name: str
     version: str
+    description: str = ""
 
 
 @dataclass(frozen=True, slots=True)

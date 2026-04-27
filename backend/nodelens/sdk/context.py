@@ -33,6 +33,7 @@ class PluginContext:
         module_name: str,
         display_name: str,
         version: str,
+        description: str = "",
     ) -> None:
         self._redis_url = redis_url
         self._plugin_id = plugin_id
@@ -40,6 +41,7 @@ class PluginContext:
         self._module_name = module_name
         self._display_name = display_name
         self._version = version
+        self._description = description
         self._redis: aioredis.Redis | None = None
 
     @property
@@ -73,6 +75,7 @@ class PluginContext:
             module_name=self._module_name,
             display_name=self._display_name,
             version=self._version,
+            description=self._description,
         )
         fields = dataclasses.asdict(event)
         fields["event_type"] = "register_plugin"
