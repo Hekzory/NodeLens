@@ -21,16 +21,23 @@ logger = logging.getLogger("nodelens.ingestor")
 
 
 async def main() -> None:
-    from nodelens.db import init_models
+    from nodelens.db import apply_storage_policies, init_models
     from nodelens.db.session import engine
 
     await init_models(engine)
     logger.info("Database schema ready (tables + hypertable).")
 
+    await apply_storage_policies(engine)
+    logger.info(
+        "Storage policies applied  compress_after=%dd  retain=%dd  budget=%dGB",
+        settings.COMPRESSION_AFTER_DAYS, settings.RETENTION_DAYS, settings.DISK_BUDGET_GB,
+    )
+
     from nodelens.workers.ingestor.consumer import run_consumer
     from nodelens.workers.ingestor.registration import run_registration_consumer
+    from nodelens.workers.ingestor.retention import run_disk_budget_enforcer
 
-    tasks = [run_consumer(), run_registration_consumer()]
+    tasks = [run_consumer(), run_registration_consumer(), run_disk_budget_enforcer()]
 
     logger.info("Starting ingestor (%d tasks) …", len(tasks))
     try:

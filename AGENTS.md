@@ -224,6 +224,8 @@ These are intentional and should not be casually broken.
 - upserts plugin/device/sensor metadata from registration events
 - validates that sensor_id exists, belongs to the given device_id, and the device has a registered plugin
 - updates `devices.last_seen` on successful telemetry write
+- on startup, applies TimescaleDB columnar compression settings + (re-)installs the compression and retention policies from `nodelens.config.settings` (idempotent). Owns these policies — other workers do not reapply them.
+- runs a periodic disk-budget enforcer (`workers/ingestor/retention.py`): every `RETENTION_CHECK_INTERVAL_SECONDS`, drops the oldest chunks if total telemetry size exceeds `DISK_BUDGET_GB` (with a 5% headroom to avoid oscillation). Complements — does not replace — the time-based retention policy.
 - should remain focused on durable ingestion and registration
 - should **not** create plugins, devices, or sensors from telemetry events (only from explicit registration events)
 
@@ -402,6 +404,8 @@ Exact routes and payloads:
 **Health** `health.py`
 - `GET /api/health` — liveness
 - `GET /api/health/db` — DB check
+- `GET /api/health/redis` — Redis check
+- `GET /api/health/storage` — telemetry hypertable size, compression breakdown, and configured retention/compression/disk-budget policy
 
 **Plugins** `plugins.py`
 - `GET /api/plugins` — list with device count
@@ -487,6 +491,7 @@ Current implemented schema subset:
   - `value_numeric: DOUBLE PRECISION | NULL`
   - `value_text: VARCHAR | NULL`
   - primary key: (`time`, `sensor_id`)
+  - TimescaleDB hypertable on `time`; columnar compression enabled with `segmentby=sensor_id, orderby=time DESC`. The ingestor calls `apply_storage_policies()` on startup, which (re-)installs Timescale's compression policy (`compress_after = COMPRESSION_AFTER_DAYS`) and retention policy (`drop_after = RETENTION_DAYS`). A separate ingestor task (`workers/ingestor/retention.py`) enforces the `DISK_BUDGET_GB` ceiling.
 
 - `alert_rules`
   - `id: UUID` (PK)
@@ -716,6 +721,10 @@ Current relevant env vars:
 - `LOG_LEVEL`
 - `PLUGINS_DIR`
 - `NO_DATA_SCAN_INTERVAL_SECONDS` (alerts worker; default 5)
+- `RETENTION_DAYS` (telemetry retention policy; default 365 — diploma NF-6)
+- `COMPRESSION_AFTER_DAYS` (compress chunks older than this; default 7; must be `< RETENTION_DAYS`)
+- `DISK_BUDGET_GB` (hard upper bound on telemetry on-disk size; default 30 — diploma NF-7)
+- `RETENTION_CHECK_INTERVAL_SECONDS` (disk-budget enforcer cadence; default 3600)
 
 Current useful commands:
 - `make up`
