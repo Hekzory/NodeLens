@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING
 
 from redis.exceptions import ConnectionError as RedisConnectionError
 from redis.exceptions import TimeoutError as RedisTimeoutError
@@ -16,12 +15,9 @@ from nodelens.constants import (
 )
 from nodelens.heartbeat import touch_heartbeat
 from nodelens.redis.client import get_redis
-from nodelens.redis.parse import parse_telemetry_event
+from nodelens.redis.parse import partition_telemetry_batch
 from nodelens.redis.streams import ack, ensure_consumer_group, read_stream
 from nodelens.workers.ingestor.writer import write_batch
-
-if TYPE_CHECKING:
-    from nodelens.schemas.events import TelemetryEvent
 
 logger = logging.getLogger("nodelens.ingestor.consumer")
 
@@ -55,17 +51,7 @@ async def run_consumer() -> None:
         if not messages:
             continue
 
-        events: list[TelemetryEvent] = []
-        good_ids: list[str] = []
-        bad_ids: list[str] = []
-
-        for msg_id, fields in messages:
-            try:
-                events.append(parse_telemetry_event(fields))
-                good_ids.append(msg_id)
-            except (KeyError, ValueError) as exc:
-                logger.warning("Dropping malformed message %s: %s", msg_id, exc)
-                bad_ids.append(msg_id)
+        events, good_ids, bad_ids = partition_telemetry_batch(messages, logger=logger)
 
         # ACK unparseable messages so they don't block the group
         if bad_ids:

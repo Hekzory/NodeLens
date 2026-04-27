@@ -11,7 +11,11 @@ import pytest
 from nodelens.schemas.events import TelemetryEvent
 from nodelens.workers.alerts.conditions.base import compare
 from nodelens.workers.alerts.conditions.threshold import fires
-from nodelens.workers.alerts.evaluator import evaluate, is_in_cooldown
+from nodelens.workers.alerts.evaluator import (
+    evaluate,
+    is_in_cooldown,
+    load_active_rules_for_sensor,
+)
 
 # ── Operator dispatch ────────────────────────────────────────────
 
@@ -69,6 +73,31 @@ def _scalar_result(value):
     result = MagicMock()
     result.scalar.return_value = value
     return result
+
+
+def _scalars_all(items):
+    result = MagicMock()
+    result.scalars.return_value.all.return_value = list(items)
+    return result
+
+
+class TestLoadActiveRulesForSensor:
+    async def test_returns_list_from_session(self):
+        rule_a = _make_rule(name="A")
+        rule_b = _make_rule(name="B")
+        session = AsyncMock()
+        session.execute = AsyncMock(return_value=_scalars_all([rule_a, rule_b]))
+
+        rules = await load_active_rules_for_sensor(session, str(uuid.uuid4()))
+        assert rules == [rule_a, rule_b]
+        session.execute.assert_awaited_once()
+
+    async def test_returns_empty_list_when_no_rules(self):
+        session = AsyncMock()
+        session.execute = AsyncMock(return_value=_scalars_all([]))
+
+        rules = await load_active_rules_for_sensor(session, str(uuid.uuid4()))
+        assert rules == []
 
 
 class TestCooldown:

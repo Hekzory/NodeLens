@@ -5,6 +5,7 @@ from datetime import datetime
 import pytest
 
 from nodelens.redis.parse import parse_telemetry_event as _parse_event
+from nodelens.redis.parse import partition_telemetry_batch
 from nodelens.schemas.events import (
     RegisterDeviceEvent,
     RegisterPluginEvent,
@@ -54,6 +55,47 @@ class TestParseTelemetryEvent:
         fields = {**_VALID_TELEMETRY, "timestamp": "not-a-date"}
         with pytest.raises(ValueError, match="(?i)isoformat"):
             _parse_event(fields)
+
+
+class TestPartitionTelemetryBatch:
+    def test_empty_batch_returns_three_empty_lists(self):
+        events, good, bad = partition_telemetry_batch([])
+        assert events == []
+        assert good == []
+        assert bad == []
+
+    def test_all_valid_messages(self):
+        msgs = [
+            ("1-0", _VALID_TELEMETRY),
+            ("1-1", {**_VALID_TELEMETRY, "value": "1.0"}),
+        ]
+        events, good, bad = partition_telemetry_batch(msgs)
+        assert len(events) == 2
+        assert good == ["1-0", "1-1"]
+        assert bad == []
+
+    def test_separates_malformed_from_valid_preserving_order(self):
+        msgs = [
+            ("1-0", _VALID_TELEMETRY),
+            ("1-1", {**_VALID_TELEMETRY, "value": "not-a-number"}),
+            ("1-2", _VALID_TELEMETRY),
+            ("1-3", {k: v for k, v in _VALID_TELEMETRY.items() if k != "device_id"}),
+        ]
+        events, good, bad = partition_telemetry_batch(msgs)
+        assert len(events) == 2
+        assert good == ["1-0", "1-2"]
+        assert bad == ["1-1", "1-3"]
+
+    def test_uses_caller_supplied_logger(self):
+        from unittest.mock import MagicMock
+
+        log = MagicMock(spec=["warning"])
+        msgs = [("1-0", {})]  # missing every field → KeyError
+        events, good, bad = partition_telemetry_batch(msgs, logger=log)
+        assert events == []
+        assert good == []
+        assert bad == ["1-0"]
+        log.warning.assert_called_once()
 
 
 class TestParseRegisterPlugin:

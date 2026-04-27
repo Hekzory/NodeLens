@@ -63,6 +63,27 @@ def patched_helpers(monkeypatch):
     return cooldown_mock, dispatch_mock
 
 
+class TestLastSeenForSensors:
+    async def test_empty_input_returns_empty_dict_without_query(self):
+        session = MagicMock()
+        session.execute = AsyncMock()
+        out = await no_data_scanner._last_seen_for_sensors(session, set())
+        assert out == {}
+        session.execute.assert_not_called()
+
+    async def test_missing_sensors_default_to_none(self):
+        sid_a = uuid.uuid4()
+        sid_b = uuid.uuid4()
+        ts = datetime.now(UTC)
+        session = AsyncMock()
+        # Only sid_a has telemetry; sid_b is silent.
+        session.execute = AsyncMock(return_value=_rows_all([(sid_a, ts)]))
+
+        out = await no_data_scanner._last_seen_for_sensors(session, {sid_a, sid_b})
+        assert out[sid_a] == ts
+        assert out[sid_b] is None
+
+
 class TestScanOnce:
     async def test_fires_when_silence_exceeds_window(self, healthy_pipeline, patched_helpers):
         cooldown_mock, dispatch_mock = patched_helpers

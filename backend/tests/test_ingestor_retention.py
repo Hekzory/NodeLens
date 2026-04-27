@@ -139,3 +139,19 @@ class TestEnforceOnce:
         assert len(drop_calls) == 1
         # 40 GB total, 30 GB budget → target 28.5 GB → drop chunks[0]+[1] → cutoff=chunks[1].
         assert drop_calls[0][1]["cutoff"] == chunks[1].range_end
+
+    @pytest.mark.asyncio
+    async def test_over_budget_with_no_chunks_does_not_drop(self):
+        # hypertable_size reports we are over, but chunks_detailed_size is empty.
+        # Must log a warning and return without calling drop_chunks.
+        factory, sentinel = self._patch_session(total_bytes=40 * GB, chunks=[])
+        with (
+            patch("nodelens.workers.ingestor.retention.async_session", factory),
+            patch("nodelens.workers.ingestor.retention.settings.DISK_BUDGET_GB", 30),
+        ):
+            await enforce_once()
+
+        # We listed chunks (the function reached the over-budget branch) …
+        assert any("chunks_detailed_size" in s for s in sentinel.executed)
+        # … but never tried to drop anything.
+        assert not any("drop_chunks" in s for s in sentinel.executed)
