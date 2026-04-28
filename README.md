@@ -80,7 +80,7 @@ Plugin authors only need to subclass `DevicePlugin` (implement `on_message`) or 
 ## Development
 
 ```bash
-# Backend tests (pytest, 170 tests)
+# Backend tests (pytest)
 make test
 make pytest       # verbose
 
@@ -120,7 +120,7 @@ backend/          Python backend (FastAPI + ingestor + alerts + plugin runner)
       ingestor/   Telemetry + registration consumers
       alerts/     Rule evaluator + dispatcher
       plugin_runner/  Subprocess supervisor
-  tests/          Pytest suite (170 tests)
+  tests/          Pytest suite
 frontend/         React + TypeScript SPA (Vite + Mantine)
 plugins/          Drop-in device/integration plugins
   devices/demo_sender/

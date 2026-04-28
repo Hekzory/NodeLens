@@ -248,3 +248,34 @@ export interface NotificationChannelUpdate {
   config?: Record<string, unknown>;
   is_active?: boolean;
 }
+
+// --- System settings ---
+export type SystemSettingGroup = 'storage' | 'alerts' | 'devices' | 'ui';
+export type SystemSettingValueType = 'int' | 'float' | 'bool' | 'string';
+export type SystemSettingValue = number | string | boolean;
+
+export interface SystemSetting {
+  key: string;
+  label: string;
+  group: SystemSettingGroup;
+  value_type: SystemSettingValueType;
+  value: SystemSettingValue;
+  default: SystemSettingValue;
+  is_default: boolean;
+  unit: string | null;
+  min: number | null;
+  max: number | null;
+  requires_restart: boolean;
+  affects_services: string[];
+  help: string;
+  updated_at: string | null;
+}
+
+export interface SystemSettingsUpdate {
+  updates: Record<string, SystemSettingValue>;
+}
+
+export interface SystemSettingsUpdateResponse {
+  updated: SystemSetting[];
+  requires_restart_keys: string[];
+}

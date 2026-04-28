@@ -345,9 +345,10 @@ Deployment artifacts:
 Shared Python codebase.
 
 Currently implemented parts:
-- `nodelens/config.py` → settings (`DATABASE_URL`, `REDIS_URL`, `LOG_LEVEL`, `PLUGINS_DIR`)
+- `nodelens/config.py` → env-sourced defaults (connection strings + the seeds for every DB-overridable runtime setting). Connection strings (`DATABASE_URL`, `REDIS_URL`, `API_HOST`, `API_PORT`, `PLUGINS_DIR`, `LOG_LEVEL`) stay env-only.
 - `nodelens/constants.py` → stream/group constants for `telemetry_events`, `registration_events`, and `alert_dispatch_events`
-- `nodelens/db` → SQLAlchemy base, async session, models (Plugin, Device, Sensor, TelemetryRecord, AlertRule, AlertHistory, NotificationChannel, AlertRuleChannel, Dashboard, DashboardWidget)
+- `nodelens/db` → SQLAlchemy base, async session, models (Plugin, Device, Sensor, TelemetryRecord, AlertRule, AlertHistory, NotificationChannel, AlertRuleChannel, Dashboard, DashboardWidget, SystemSetting)
+- `nodelens/system_settings` → DB-backed runtime configuration: `REGISTRY` (declarative metadata per setting), `RuntimeSettings` (per-process TTL cache over `system_settings` table, falls back to `config.settings` defaults), module-level singleton `runtime_settings`. Hot-loop call sites (`workers/ingestor/retention.py`, `api/routes/devices.py`, etc.) read through this cache so changes apply within the cache TTL; settings consumed once-at-startup are flagged `requires_restart` in the registry.
 - `nodelens/redis` → Redis client + stream helpers + shared `parse_telemetry_event`
 - `nodelens/schemas/events.py` → TelemetryEvent, AlertMessage, RegisterPluginEvent, RegisterDeviceEvent, RegisterSensorEvent
 - `nodelens/sdk` → plugin SDK (BasePlugin, DevicePlugin, IntegrationPlugin, PluginContext, exceptions, `run_dispatch_loop`)
@@ -450,6 +451,12 @@ Exact routes and payloads:
 - `PATCH /api/dashboards/{dashboard_id}/widgets/{widget_id}` — update widget config/layout
 - `DELETE /api/dashboards/{dashboard_id}/widgets/{widget_id}` — remove widget
 
+**System settings** `system_settings.py`
+- `GET /api/system/settings` — list all registered settings with current value, default, metadata, and `is_default` flag
+- `GET /api/system/settings/{key}` — single setting
+- `PATCH /api/system/settings` — bulk update (`{updates: {key: value, …}}`); validates per-key + cross-field; returns `{updated, requires_restart_keys}`
+- `DELETE /api/system/settings/{key}` — drop the override row, value reverts to the registry default
+
 ### `backend/nodelens/db`
 Database access and models.
 
@@ -533,6 +540,12 @@ Current implemented schema subset:
   - `widget_type: VARCHAR`
   - `config: JSONB`
   - `layout: JSONB`
+
+- `system_settings`
+  - `key: VARCHAR(100)` (PK)
+  - `value: JSONB`
+  - `updated_at: TIMESTAMPTZ`
+  - Sparse: a row's presence means an operator override; a missing key means "use registry default" (which is itself sourced from `nodelens.config.settings`). Authoritative metadata (label, type, default, validation, `requires_restart`) lives in the Python registry — only user-set values live in the DB.
 
 Full future application schema beyond this subset:
 - [this part is not currently implemented, will be replaced with details of internals later]
@@ -714,15 +727,20 @@ Current relevant env vars:
 - `POSTGRES_USER`
 - `POSTGRES_PASSWORD`
 - `POSTGRES_DB`
-- `DATABASE_URL`
-- `REDIS_URL`
-- `LOG_LEVEL`
-- `PLUGINS_DIR`
-- `NO_DATA_SCAN_INTERVAL_SECONDS` (alerts worker; default 5)
-- `RETENTION_DAYS` (telemetry retention policy; default 365 — diploma NF-6)
-- `COMPRESSION_AFTER_DAYS` (compress chunks older than this; default 7; must be `< RETENTION_DAYS`)
-- `DISK_BUDGET_GB` (hard upper bound on telemetry on-disk size; default 30 — diploma NF-7)
-- `RETENTION_CHECK_INTERVAL_SECONDS` (disk-budget enforcer cadence; default 3600)
+- `DATABASE_URL` *(env-only — connection string)*
+- `REDIS_URL` *(env-only — connection string)*
+- `LOG_LEVEL` *(env-only)*
+- `PLUGINS_DIR` *(env-only — startup discovery path)*
+- `API_HOST`, `API_PORT` *(env-only — socket binding)*
+
+The values below are seed defaults — when a row is present in the `system_settings` table it overrides the env value. Edit them at runtime via `GET/PATCH /api/system/settings` or the System Settings UI:
+- `NO_DATA_SCAN_INTERVAL_SECONDS` (alerts worker; default 5; restart required)
+- `RETENTION_DAYS` (telemetry retention policy; default 365 — diploma NF-6; restart required)
+- `COMPRESSION_AFTER_DAYS` (compress chunks older than this; default 7; must be `< RETENTION_DAYS`; restart required)
+- `DISK_BUDGET_GB` (hard upper bound on telemetry on-disk size; default 30 — diploma NF-7; applies live within the runtime-settings cache TTL)
+- `RETENTION_CHECK_INTERVAL_SECONDS` (disk-budget enforcer cadence; default 3600; restart required)
+- `ONLINE_THRESHOLD_MINUTES` (device online-status cutoff; default 30; applies live)
+- `FRONTEND_POLLING_INTERVAL_SECONDS` (dashboard poll cadence; default 10; applies live — frontend updates `QueryClient` on save)
 
 Current useful commands:
 - `make up`
@@ -799,7 +817,8 @@ Current implemented slice:
 - Plugin SDK (BasePlugin, DevicePlugin, IntegrationPlugin, PluginContext, `run_dispatch_loop`)
 - Built-in `demo_sender` device plugin (generates synthetic telemetry)
 - Built-in `email` integration plugin (plain SMTP via aiosmtplib)
-- Frontend MVP (dashboard, devices, plugins, alerts pages)
+- Frontend MVP (dashboard, devices, plugins, alerts, **system settings** pages)
+- DB-backed runtime configuration (`system_settings` table + `nodelens.system_settings` registry/service)
 - Registration stream for idempotent plugin/device/sensor metadata upserts
 
 Anything not explicitly fixed above should be treated as:

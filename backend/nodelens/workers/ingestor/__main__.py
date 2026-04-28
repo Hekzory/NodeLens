@@ -28,9 +28,14 @@ async def main() -> None:
     logger.info("Database schema ready (tables + hypertable).")
 
     await apply_storage_policies(engine)
+    from nodelens.system_settings import runtime_settings
+
+    cfg = await runtime_settings.get_many(
+        "compression_after_days", "retention_days", "disk_budget_gb"
+    )
     logger.info(
         "Storage policies applied  compress_after=%dd  retain=%dd  budget=%dGB",
-        settings.COMPRESSION_AFTER_DAYS, settings.RETENTION_DAYS, settings.DISK_BUDGET_GB,
+        cfg["compression_after_days"], cfg["retention_days"], cfg["disk_budget_gb"],
     )
 
     from nodelens.workers.ingestor.consumer import run_consumer

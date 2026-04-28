@@ -14,11 +14,11 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import func, select
 
-from nodelens.config import settings
 from nodelens.db.models import AlertRule, TelemetryRecord
 from nodelens.db.session import async_session
 from nodelens.heartbeat import touch_heartbeat
 from nodelens.redis.client import get_redis
+from nodelens.system_settings import runtime_settings
 from nodelens.workers.alerts.dispatcher import dispatch_fires
 from nodelens.workers.alerts.evaluator import FireDecision, is_in_cooldown
 from nodelens.workers.alerts.liveness import (
@@ -125,7 +125,7 @@ async def _scan_once(session: AsyncSession, r: aioredis.Redis, now: datetime) ->
 
 
 async def run_no_data_scanner() -> None:
-    interval = max(1, int(settings.NO_DATA_SCAN_INTERVAL_SECONDS))
+    interval = max(1, await runtime_settings.get_int("no_data_scan_interval_seconds"))
     mark_scanner_started(datetime.now(UTC))
     logger.info(
         "no_data scanner started  interval=%ss", interval,

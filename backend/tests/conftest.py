@@ -1,13 +1,33 @@
 """Shared fixtures for NodeLens unit tests."""
 
+import time
 import uuid
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
+
+import pytest
+
+from nodelens.system_settings import REGISTRY, runtime_settings
 
 # ── Canonical test UUIDs ─────────────────────────────────────────
 PLUGIN_ID = uuid.UUID("10000000-0000-0000-0000-000000000001")
 DEVICE_ID = uuid.UUID("20000000-0000-0000-0000-000000000001")
 SENSOR_ID = uuid.UUID("30000000-0000-0000-0000-000000000001")
+
+
+@pytest.fixture(autouse=True)
+def _seed_runtime_settings():
+    """Pre-populate the in-process settings cache with registry defaults so tests
+    don't try to hit a real DB through ``runtime_settings._reload``.
+
+    Tests that want to override a value can mutate ``runtime_settings._cache``
+    directly inside the test body — the autouse fixture restores defaults on
+    teardown.
+    """
+    runtime_settings._cache = {k: spec.default for k, spec in REGISTRY.items()}
+    runtime_settings._loaded_at = time.monotonic()
+    yield
+    runtime_settings.invalidate()
 
 PLUGIN_ID_STR = str(PLUGIN_ID)
 DEVICE_ID_STR = str(DEVICE_ID)

@@ -1,7 +1,7 @@
 """Device & sensor endpoints."""
 
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import or_, select
@@ -9,21 +9,25 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from nodelens.api.deps import get_db
-from nodelens.config import ONLINE_THRESHOLD
 from nodelens.db.models import Device, Plugin, Sensor
 from nodelens.schemas.devices import DeviceDetail, DeviceRead, SensorBrief, SensorRead
+from nodelens.system_settings import runtime_settings
 
 router = APIRouter(prefix="/api/devices", tags=["devices"])
 
 
-def _compute_online(device: Device) -> bool:
+def _is_online(device: Device, cutoff: datetime) -> bool:
     """A device is online only if its plugin is active and it was seen recently."""
     if not device.plugin.is_active:
         return False
     if device.last_seen is None:
         return False
-    cutoff = datetime.now(UTC) - ONLINE_THRESHOLD
     return device.last_seen >= cutoff
+
+
+async def _online_cutoff() -> datetime:
+    minutes = await runtime_settings.get_int("online_threshold_minutes")
+    return datetime.now(UTC) - timedelta(minutes=minutes)
 
 
 @router.get("", response_model=list[DeviceRead])
@@ -33,6 +37,7 @@ async def list_devices(
     db: AsyncSession = Depends(get_db),
 ):
     """List all devices with optional filters."""
+    cutoff = await _online_cutoff()
     stmt = (
         select(Device)
         .options(selectinload(Device.sensors), selectinload(Device.plugin))
@@ -42,7 +47,6 @@ async def list_devices(
         stmt = stmt.where(Device.plugin_id == plugin_id)
 
     if is_online is not None:
-        cutoff = datetime.now(UTC) - ONLINE_THRESHOLD
         stmt = stmt.join(Device.plugin)
         if is_online:
             stmt = stmt.where(
@@ -63,7 +67,7 @@ async def list_devices(
     results = []
     for device in devices:
         data = DeviceRead.model_validate(device)
-        data.is_online = _compute_online(device)
+        data.is_online = _is_online(device, cutoff)
         data.sensor_count = len(device.sensors)
         results.append(data)
     return results
@@ -81,13 +85,14 @@ async def get_device(device_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     if device is None:
         raise HTTPException(status_code=404, detail="Device not found")
 
+    cutoff = await _online_cutoff()
     return DeviceDetail(
         id=device.id,
         plugin_id=device.plugin_id,
         external_id=device.external_id,
         name=device.name,
         location=device.location,
-        is_online=_compute_online(device),
+        is_online=_is_online(device, cutoff),
         last_seen=device.last_seen,
         created_at=device.created_at,
         sensors=[SensorBrief.model_validate(s) for s in device.sensors],

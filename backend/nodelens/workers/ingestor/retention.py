@@ -16,9 +16,9 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import text
 
-from nodelens.config import settings
 from nodelens.db.session import async_session
 from nodelens.heartbeat import touch_heartbeat
+from nodelens.system_settings import runtime_settings
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -92,7 +92,8 @@ async def _drop_chunks_older_than(session: AsyncSession, cutoff: datetime) -> No
 
 async def enforce_once() -> None:
     """One enforcement tick. Public so tests can drive it without the loop."""
-    budget_bytes = int(settings.DISK_BUDGET_GB) * 1024**3
+    budget_gb = await runtime_settings.get_int("disk_budget_gb")
+    budget_bytes = budget_gb * 1024**3
 
     async with async_session() as session, session.begin():
         total = await _hypertable_size(session)
@@ -119,10 +120,11 @@ async def enforce_once() -> None:
 
 async def run_disk_budget_enforcer() -> None:
     """Periodic loop. Sleeps first so it does not race startup tasks."""
-    interval = int(settings.RETENTION_CHECK_INTERVAL_SECONDS)
+    interval = await runtime_settings.get_int("retention_check_interval_seconds")
+    budget_gb = await runtime_settings.get_int("disk_budget_gb")
     logger.info(
         "Disk-budget enforcer started  budget=%dGB  interval=%ds",
-        settings.DISK_BUDGET_GB, interval,
+        budget_gb, interval,
     )
     while True:
         await asyncio.sleep(interval)

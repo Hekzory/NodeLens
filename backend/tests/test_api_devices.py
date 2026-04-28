@@ -1,7 +1,7 @@
 """Unit tests for device API endpoints."""
 
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock
 
 import httpx
@@ -9,7 +9,7 @@ import pytest
 from fastapi import FastAPI
 
 from nodelens.api.deps import get_db
-from nodelens.api.routes.devices import _compute_online, router
+from nodelens.api.routes.devices import _is_online, router
 from tests.conftest import DEVICE_ID, PLUGIN_ID, SENSOR_ID, make_execute_result, make_mock_db
 
 _app = FastAPI()
@@ -57,7 +57,7 @@ def _make_sensor():
     return s
 
 
-# ── _compute_online unit tests ───────────────────────────────────
+# ── _is_online unit tests ───────────────────────────────────
 
 def _online_device(is_active, last_seen):
     d = MagicMock()
@@ -73,8 +73,9 @@ def _online_device(is_active, last_seen):
     (True, datetime.now(UTC), True),   # recently seen
     (True, datetime(2020, 1, 1, tzinfo=UTC), False),  # stale
 ])
-def test_compute_online(is_active, last_seen, expected):
-    assert _compute_online(_online_device(is_active, last_seen)) is expected
+def test_is_online(is_active, last_seen, expected):
+    cutoff = datetime.now(UTC) - timedelta(minutes=30)
+    assert _is_online(_online_device(is_active, last_seen), cutoff) is expected
 
 
 # ── list_devices ──────────────────────────────────────────────────

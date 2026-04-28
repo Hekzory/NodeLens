@@ -44,15 +44,21 @@ async def init_models(engine: AsyncEngine) -> None:
 async def apply_storage_policies(engine: AsyncEngine) -> None:
     """Enable columnar compression + (re-)apply compression and retention policies.
 
-    Reads `COMPRESSION_AFTER_DAYS` and `RETENTION_DAYS` from `settings`. Each call
-    drops the existing policies and recreates them so config edits take effect on
+    Reads `compression_after_days` and `retention_days` via `runtime_settings`
+    (DB override falls through to `nodelens.config.settings` defaults). Each
+    call drops the existing policies and recreates them so edits take effect on
     restart. Idempotent: safe to invoke on every startup.
 
     Owned by the ingestor process (it owns telemetry writes); other workers should
     not call this.
     """
-    compress_days = int(settings.COMPRESSION_AFTER_DAYS)
-    retain_days = int(settings.RETENTION_DAYS)
+    # Deferred import: nodelens.system_settings.service depends on nodelens.db.models,
+    # so a top-level import here would close the cycle through this very module.
+    from nodelens.system_settings import runtime_settings
+
+    cfg = await runtime_settings.get_many("compression_after_days", "retention_days")
+    compress_days = int(cfg["compression_after_days"])
+    retain_days = int(cfg["retention_days"])
 
     async with engine.begin() as conn:
         # Enable per-sensor columnar compression. segmentby=sensor_id matches the

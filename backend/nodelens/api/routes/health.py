@@ -6,7 +6,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from nodelens import __version__
 from nodelens.api.deps import get_db
-from nodelens.config import settings
 from nodelens.redis.client import get_redis
 from nodelens.schemas.storage import (
     BudgetStatus,
@@ -14,6 +13,7 @@ from nodelens.schemas.storage import (
     StorageStats,
     TelemetrySize,
 )
+from nodelens.system_settings import runtime_settings
 
 router = APIRouter(prefix="/api/health", tags=["health"])
 
@@ -76,7 +76,13 @@ async def health_storage(db: AsyncSession = Depends(get_db)) -> StorageStats:
     if before_bytes > 0 and after_bytes > 0:
         compression_ratio = round(before_bytes / after_bytes, 2)
 
-    budget_bytes = int(settings.DISK_BUDGET_GB) * 1024**3
+    cfg = await runtime_settings.get_many(
+        "retention_days",
+        "compression_after_days",
+        "disk_budget_gb",
+        "retention_check_interval_seconds",
+    )
+    budget_bytes = int(cfg["disk_budget_gb"]) * 1024**3
     used_percent = round(100.0 * total_bytes / budget_bytes, 2) if budget_bytes else 0.0
 
     return StorageStats(
@@ -92,9 +98,9 @@ async def health_storage(db: AsyncSession = Depends(get_db)) -> StorageStats:
             used_percent=used_percent,
         ),
         config=StoragePolicyConfig(
-            retention_days=settings.RETENTION_DAYS,
-            compression_after_days=settings.COMPRESSION_AFTER_DAYS,
-            disk_budget_gb=settings.DISK_BUDGET_GB,
-            retention_check_interval_seconds=settings.RETENTION_CHECK_INTERVAL_SECONDS,
+            retention_days=cfg["retention_days"],
+            compression_after_days=cfg["compression_after_days"],
+            disk_budget_gb=cfg["disk_budget_gb"],
+            retention_check_interval_seconds=cfg["retention_check_interval_seconds"],
         ),
     )

@@ -14,6 +14,7 @@ from nodelens.api.routes.dashboards import router as dashboards_router
 from nodelens.api.routes.devices import router as devices_router
 from nodelens.api.routes.health import router as health_router
 from nodelens.api.routes.plugins import router as plugins_router
+from nodelens.api.routes.system_settings import router as system_settings_router
 from nodelens.api.routes.telemetry import router as telemetry_router
 from nodelens.db import init_models
 from nodelens.db.session import engine
@@ -65,3 +66,4 @@ app.include_router(telemetry_router)
 app.include_router(channels_router)
 app.include_router(alerts_router)
 app.include_router(dashboards_router)
+app.include_router(system_settings_router)

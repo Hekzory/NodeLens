@@ -113,10 +113,10 @@ class TestEnforceOnce:
     async def test_under_budget_no_drop(self):
         chunks = _chunks(count=2, each_bytes=1 * GB)
         factory, sentinel = self._patch_session(total_bytes=2 * GB, chunks=chunks)
-        with (
-            patch("nodelens.workers.ingestor.retention.async_session", factory),
-            patch("nodelens.workers.ingestor.retention.settings.DISK_BUDGET_GB", 30),
-        ):
+        # disk_budget_gb default is 30 (from REGISTRY); the autouse fixture in
+        # conftest seeds runtime_settings._cache so enforce_once() reads it
+        # without hitting a real DB.
+        with patch("nodelens.workers.ingestor.retention.async_session", factory):
             await enforce_once()
         # Only the size query — no chunk listing, no drop.
         assert any("hypertable_size" in s for s in sentinel.executed)
@@ -126,10 +126,10 @@ class TestEnforceOnce:
     async def test_over_budget_calls_drop_chunks_with_cutoff(self):
         chunks = _chunks(count=4, each_bytes=10 * GB)  # 40 GB
         factory, sentinel = self._patch_session(total_bytes=40 * GB, chunks=chunks)
-        with (
-            patch("nodelens.workers.ingestor.retention.async_session", factory),
-            patch("nodelens.workers.ingestor.retention.settings.DISK_BUDGET_GB", 30),
-        ):
+        # disk_budget_gb default is 30 (from REGISTRY); the autouse fixture in
+        # conftest seeds runtime_settings._cache so enforce_once() reads it
+        # without hitting a real DB.
+        with patch("nodelens.workers.ingestor.retention.async_session", factory):
             await enforce_once()
 
         drop_calls = [
@@ -145,10 +145,10 @@ class TestEnforceOnce:
         # hypertable_size reports we are over, but chunks_detailed_size is empty.
         # Must log a warning and return without calling drop_chunks.
         factory, sentinel = self._patch_session(total_bytes=40 * GB, chunks=[])
-        with (
-            patch("nodelens.workers.ingestor.retention.async_session", factory),
-            patch("nodelens.workers.ingestor.retention.settings.DISK_BUDGET_GB", 30),
-        ):
+        # disk_budget_gb default is 30 (from REGISTRY); the autouse fixture in
+        # conftest seeds runtime_settings._cache so enforce_once() reads it
+        # without hitting a real DB.
+        with patch("nodelens.workers.ingestor.retention.async_session", factory):
             await enforce_once()
 
         # We listed chunks (the function reached the over-budget branch) …

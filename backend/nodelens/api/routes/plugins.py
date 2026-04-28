@@ -1,7 +1,7 @@
 """Plugin endpoints."""
 
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
@@ -10,10 +10,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from nodelens.api.deps import get_db
-from nodelens.config import ONLINE_THRESHOLD
 from nodelens.db.models import Device, Plugin
 from nodelens.schemas.devices import DeviceRead
 from nodelens.schemas.plugins import PluginRead, PluginUpdate
+from nodelens.system_settings import runtime_settings
 
 router = APIRouter(prefix="/api/plugins", tags=["plugins"])
 
@@ -112,7 +112,8 @@ async def list_plugin_devices(
         .order_by(Device.created_at)
     )
     devices = (await db.execute(devices_stmt)).scalars().all()
-    cutoff = datetime.now(UTC) - ONLINE_THRESHOLD
+    online_minutes = await runtime_settings.get_int("online_threshold_minutes")
+    cutoff = datetime.now(UTC) - timedelta(minutes=online_minutes)
     results = []
     for device in devices:
         data = DeviceRead.model_validate(device)
