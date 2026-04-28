@@ -8,3 +8,135 @@ description: >
   Built-in demo plugin that generates synthetic telemetry for three
   virtual devices.  Useful for verifying the ingest pipeline without
   real hardware.
+
+config_schema:
+  # ── General loop tuning ─────────────────────────────────────────
+  - key: tick_interval_s
+    label: "Tick interval"
+    group: general
+    value_type: float
+    default: 1.0
+    min: 0.1
+    max: 60.0
+    unit: s
+    help: "How often the main loop wakes to consider publishing. Smaller = more responsive, more CPU."
+  - key: registration_settle_s
+    label: "Registration settle delay"
+    group: general
+    value_type: float
+    default: 3.0
+    min: 0.0
+    max: 60.0
+    unit: s
+    help: "Pause after sending registration events so the ingestor can persist them before telemetry starts flowing."
+
+  # ── Living Room — Temperature ───────────────────────────────────
+  - key: living_room_temp_min
+    label: "Min value"
+    group: living_room_temp
+    value_type: float
+    default: 18.0
+    unit: "°C"
+  - key: living_room_temp_max
+    label: "Max value"
+    group: living_room_temp
+    value_type: float
+    default: 28.0
+    unit: "°C"
+  - key: living_room_temp_interval_s
+    label: "Emit interval"
+    group: living_room_temp
+    value_type: float
+    default: 3.0
+    min: 0.1
+    max: 3600.0
+    unit: s
+
+  # ── Living Room — Humidity ──────────────────────────────────────
+  - key: living_room_humidity_min
+    label: "Min value"
+    group: living_room_humidity
+    value_type: float
+    default: 30.0
+    unit: "%"
+  - key: living_room_humidity_max
+    label: "Max value"
+    group: living_room_humidity
+    value_type: float
+    default: 70.0
+    unit: "%"
+  - key: living_room_humidity_interval_s
+    label: "Emit interval"
+    group: living_room_humidity
+    value_type: float
+    default: 3.0
+    min: 0.1
+    max: 3600.0
+    unit: s
+
+  # ── Outdoor Weather — Temperature ───────────────────────────────
+  - key: weather_temp_min
+    label: "Min value"
+    group: weather_temp
+    value_type: float
+    default: 15.0
+    unit: "°C"
+  - key: weather_temp_max
+    label: "Max value"
+    group: weather_temp
+    value_type: float
+    default: 35.0
+    unit: "°C"
+  - key: weather_temp_interval_s
+    label: "Emit interval"
+    group: weather_temp
+    value_type: float
+    default: 3.0
+    min: 0.1
+    max: 3600.0
+    unit: s
+
+  # ── Outdoor Weather — Pressure ──────────────────────────────────
+  - key: weather_pressure_min
+    label: "Min value"
+    group: weather_pressure
+    value_type: float
+    default: 990.0
+    unit: hPa
+  - key: weather_pressure_max
+    label: "Max value"
+    group: weather_pressure
+    value_type: float
+    default: 1030.0
+    unit: hPa
+  - key: weather_pressure_interval_s
+    label: "Emit interval"
+    group: weather_pressure
+    value_type: float
+    default: 3.0
+    min: 0.1
+    max: 3600.0
+    unit: s
+
+  # ── Door Sensor — Battery ───────────────────────────────────────
+  - key: door_battery_min
+    label: "Min value"
+    group: door_battery
+    value_type: float
+    default: 3.0
+    unit: V
+  - key: door_battery_max
+    label: "Max value"
+    group: door_battery
+    value_type: float
+    default: 4.2
+    unit: V
+  - key: door_battery_interval_s
+    label: "Emit interval"
+    group: door_battery
+    value_type: float
+    default: 15.0
+    min: 0.1
+    max: 3600.0
+    unit: s
+    help: "Intentionally slow by default so a no_data rule with duration_seconds in the 10–14s range fires reliably between samples."

@@ -19,7 +19,7 @@ from pathlib import Path
 
 from nodelens.config import settings
 from nodelens.heartbeat import touch_heartbeat
-from nodelens.workers.plugin_runner.db import ensure_plugin_rows, get_active_plugin_ids
+from nodelens.workers.plugin_runner.db import ensure_plugin_rows, get_plugin_states
 
 logging.basicConfig(
     level=settings.LOG_LEVEL,
@@ -71,20 +71,6 @@ def discover_plugins(base_dir: Path) -> tuple[dict[str, Path], dict[str, dict]]:
                 logger.warning("Skipping %s — invalid manifest: %s", plugin_dir.name, exc)
 
     return plugin_dirs, manifests
-
-
-async def _get_active_plugin_ids() -> set[str]:
-    """Query the DB for plugin IDs where ``is_active = True``."""
-    from sqlalchemy import select
-
-    from nodelens.db.models.plugin import Plugin
-    from nodelens.db.session import async_session
-
-    async with async_session() as session:
-        result = await session.execute(
-            select(Plugin.id).where(Plugin.is_active.is_(True))
-        )
-        return {str(row.id) for row in result}
 
 
 def start_plugin(plugin_dir: Path) -> subprocess.Popen:
@@ -141,10 +127,13 @@ def main() -> None:
 
     # Check which plugins are active in DB
     try:
-        active_ids = get_active_plugin_ids()
+        states = get_plugin_states()
     except Exception:
-        logger.warning("Could not query DB for active plugins — starting all discovered plugins.")
-        active_ids = set(all_plugins.keys())
+        logger.warning("Could not query DB for plugin states — starting all discovered plugins.")
+        states = dict.fromkeys(all_plugins, (True, 0))
+
+    active_ids = {pid for pid, (active, _) in states.items() if active}
+    last_config_version: dict[str, int] = {pid: ver for pid, (_, ver) in states.items()}
 
     processes: dict[str, subprocess.Popen] = {}
     for plugin_id, plugin_dir in all_plugins.items():
@@ -162,14 +151,16 @@ def main() -> None:
             touch_heartbeat()
             cycles_since_db_check += 1
 
-            # Check DB for is_active changes every ~10 seconds
+            # Check DB for is_active / config_version changes every ~10 seconds
             if cycles_since_db_check >= 5:
                 cycles_since_db_check = 0
                 try:
-                    active_ids = get_active_plugin_ids()
+                    states = get_plugin_states()
                 except Exception as e:
                     logger.warning(f"DB check failed — keeping current state: {e}")
-                    active_ids = set(processes.keys())
+                    states = {pid: (True, last_config_version.get(pid, 0)) for pid in processes}
+
+                active_ids = {pid for pid, (active, _) in states.items() if active}
 
                 # Stop plugins that became inactive
                 for plugin_id in list(processes.keys()):
@@ -186,6 +177,26 @@ def main() -> None:
                         proc = start_plugin(plugin_dir)
                         processes[plugin_id] = proc
                         logger.info("Activated plugin %s (pid=%d)", plugin_dir.name, proc.pid)
+
+                # Restart plugins whose config_version has changed
+                for plugin_id in list(processes.keys()):
+                    new_version = states.get(plugin_id, (True, last_config_version.get(plugin_id, 0)))[1]
+                    if new_version != last_config_version.get(plugin_id, 0):
+                        plugin_dir = all_plugins[plugin_id]
+                        logger.info(
+                            "Plugin %s config_version changed (%d → %d) — restarting.",
+                            plugin_dir.name,
+                            last_config_version.get(plugin_id, 0),
+                            new_version,
+                        )
+                        stop_plugin(plugin_dir, processes[plugin_id])
+                        proc = start_plugin(plugin_dir)
+                        processes[plugin_id] = proc
+                        last_config_version[plugin_id] = new_version
+                        logger.info("Restarted plugin %s (pid=%d)", plugin_dir.name, proc.pid)
+                    else:
+                        # Keep the tracker in sync with newly-activated plugins.
+                        last_config_version[plugin_id] = new_version
 
             # Monitor running processes and restart crashed ones
             for plugin_id, proc in list(processes.items()):

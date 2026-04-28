@@ -28,29 +28,35 @@ def _make_session_factory():
     return Session, session
 
 
-class TestGetActivePluginIds:
-    def test_returns_set_of_string_ids(self):
+class TestGetPluginStates:
+    def test_returns_active_and_version_per_plugin(self):
         Session, session = _make_session_factory()
 
         plugin_a = uuid.uuid4()
         plugin_b = uuid.uuid4()
-        rows = [MagicMock(id=plugin_a), MagicMock(id=plugin_b)]
+        rows = [
+            MagicMock(id=plugin_a, is_active=True, config_version=2),
+            MagicMock(id=plugin_b, is_active=False, config_version=0),
+        ]
         session.execute = MagicMock(return_value=iter(rows))
 
         with patch("sqlalchemy.orm.Session", Session):
-            result = db_module.get_active_plugin_ids()
+            result = db_module.get_plugin_states()
 
-        assert result == {str(plugin_a), str(plugin_b)}
+        assert result == {
+            str(plugin_a): (True, 2),
+            str(plugin_b): (False, 0),
+        }
         session.execute.assert_called_once()
 
-    def test_empty_when_no_active_plugins(self):
+    def test_empty_when_no_plugins(self):
         Session, session = _make_session_factory()
         session.execute = MagicMock(return_value=iter([]))
 
         with patch("sqlalchemy.orm.Session", Session):
-            result = db_module.get_active_plugin_ids()
+            result = db_module.get_plugin_states()
 
-        assert result == set()
+        assert result == {}
 
 
 class TestEnsurePluginRows:

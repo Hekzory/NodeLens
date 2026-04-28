@@ -16,12 +16,27 @@ if TYPE_CHECKING:
 
 def load_manifest(plugin_dir: Path) -> dict[str, Any]:
     """Read and validate the ``manifest.yaml`` inside *plugin_dir*."""
+    from nodelens.plugin_config.registry import parse_schema, schema_to_jsonable
+
     yaml = YAML()
     manifest_path = plugin_dir / "manifest.yaml"
     with manifest_path.open() as fh:
         data = yaml.load(fh)
     if not isinstance(data, dict):
         raise TypeError(f"Manifest must be a YAML mapping, got {type(data).__name__}")
+
+    # Optional: validate and normalise the config_schema block. We round-trip
+    # through parse_schema so a bad entry surfaces here (the supervisor turns
+    # this into a "skip plugin, log warning") and replace the raw value with
+    # the canonical JSON-able form so downstream consumers don't have to
+    # re-coerce.
+    if data.get("config_schema") is not None:
+        try:
+            fields = parse_schema(data["config_schema"])
+        except ValueError as exc:
+            raise TypeError(f"config_schema invalid: {exc}") from None
+        data["config_schema"] = schema_to_jsonable(fields)
+
     return data
 
 

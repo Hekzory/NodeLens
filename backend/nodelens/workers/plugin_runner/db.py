@@ -15,25 +15,32 @@ _engine = create_engine(
 )
 
 
-def get_active_plugin_ids() -> set[str]:
-    """Return plugin IDs where is_active = True (synchronous)."""
+def get_plugin_states() -> dict[str, tuple[bool, int]]:
+    """Return ``{plugin_id: (is_active, config_version)}`` for every plugin row.
+
+    Replaces the older ``get_active_plugin_ids`` — the supervisor needs both
+    the activation flag and the config version on each poll so it can detect
+    config changes and restart the affected subprocess.
+    """
     from sqlalchemy.orm import Session
 
     from nodelens.db.models.plugin import Plugin
 
     with Session(_engine) as session:
         result = session.execute(
-            select(Plugin.id).where(Plugin.is_active.is_(True))
+            select(Plugin.id, Plugin.is_active, Plugin.config_version)
         )
-        return {str(row.id) for row in result}
+        return {str(row.id): (bool(row.is_active), int(row.config_version)) for row in result}
 
 
 def ensure_plugin_rows(manifests: dict[str, dict]) -> None:
     """Bootstrap a row in ``plugins`` for every discovered manifest.
 
     On INSERT we set ``is_active=True`` so a freshly-installed plugin actually
-    starts. On CONFLICT we only refresh ``display_name`` / ``version`` — never
-    ``is_active`` — so an operator's manual toggle in the UI is preserved.
+    starts. On CONFLICT we refresh ``display_name`` / ``description`` /
+    ``version`` / ``config_schema`` — never ``is_active``, ``config``, or
+    ``config_version`` — so an operator's UI toggles and config overrides
+    survive a plugin worker restart.
 
     Without this, the supervisor's ``is_active`` gate creates a chicken-and-egg
     deadlock: the plugin row only appears once the plugin publishes a
@@ -52,6 +59,7 @@ def ensure_plugin_rows(manifests: dict[str, dict]) -> None:
     with Session(_engine) as session, session.begin():
         for plugin_id, manifest in manifests.items():
             description = (manifest.get("description") or "").strip() or None
+            schema = list(manifest.get("config_schema") or [])
             stmt = (
                 pg_insert(Plugin)
                 .values(
@@ -62,6 +70,7 @@ def ensure_plugin_rows(manifests: dict[str, dict]) -> None:
                     description=description,
                     version=manifest["version"],
                     is_active=True,
+                    config_schema=schema,
                 )
                 .on_conflict_do_update(
                     index_elements=["id"],
@@ -69,6 +78,7 @@ def ensure_plugin_rows(manifests: dict[str, dict]) -> None:
                         "display_name": manifest["display_name"],
                         "description": description,
                         "version": manifest["version"],
+                        "config_schema": schema,
                     },
                 )
             )

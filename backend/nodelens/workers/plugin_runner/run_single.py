@@ -21,6 +21,7 @@ logging.basicConfig(
 
 
 async def _run(plugin_dir: Path) -> None:
+    from nodelens.plugin_config.subprocess_loader import load_effective_config
     from nodelens.sdk.context import PluginContext
     from nodelens.workers.plugin_runner.loader import load_manifest, load_plugin_class
 
@@ -44,8 +45,14 @@ async def _run(plugin_dir: Path) -> None:
     await ctx.connect()
     plugin._set_context(ctx)
 
-    logger.info("Configuring plugin %s v%s …", plugin_name, manifest["version"])
-    await plugin.configure({})
+    effective_config = await load_effective_config(manifest)
+    logger.info(
+        "Configuring plugin %s v%s with %d setting(s) …",
+        plugin_name,
+        manifest["version"],
+        len(effective_config),
+    )
+    await plugin.configure(effective_config)
 
     logger.info("Starting plugin %s …", plugin_name)
     try:

@@ -9,3 +9,42 @@ description: >
   verification — intended as a working reference integration.  Per-channel
   config holds recipient ('to'), 'smtp_host', 'smtp_port', 'from', and
   optional 'subject'.
+
+config_schema:
+  - key: default_from
+    label: "Default From address"
+    group: identity
+    value_type: string
+    default: "alerts@nodelens.local"
+    help: >-
+      Used as the From address when a channel does not specify its own.
+      Channel-level 'from' still overrides this.
+  - key: smtp_host
+    label: "Default SMTP host"
+    group: connection
+    value_type: string
+    default: ""
+    help: >-
+      Optional global default. A channel that sets its own smtp_host wins.
+      Leave blank to require every channel to declare a host.
+  - key: smtp_port
+    label: "Default SMTP port"
+    group: connection
+    value_type: int
+    default: 0
+    min: 0
+    max: 65535
+    help: "0 means pick a sensible default (25 / 465 / 587) based on the TLS flags."
+  - key: use_tls
+    label: "Implicit TLS by default"
+    group: connection
+    value_type: bool
+    default: false
+  - key: smtp_password
+    label: "SMTP password"
+    group: connection
+    value_type: secret
+    default: ""
+    help: >-
+      App password / SMTP password. Stored in plain JSONB — treat the
+      database as trusted; encryption-at-rest is out of scope.

@@ -1,30 +1,11 @@
-import { Fragment, useState } from 'react';
-import { Title, Table, Badge, Switch, Text, Collapse, Skeleton, Stack } from '@mantine/core';
-import { usePlugins, usePluginDevices, useTogglePlugin } from '@/hooks/plugins';
-
-function PluginDevices({ pluginId }: { pluginId: string }) {
-  const { data: devices, isLoading } = usePluginDevices(pluginId);
-  if (isLoading) return <Skeleton h={16} w={200} />;
-  if (!devices?.length) return <Text size="sm" c="dimmed">No devices</Text>;
-  return (
-    <Stack gap={2}>
-      {devices.map((d) => (
-        <Text key={d.id} size="sm">
-          {d.name}
-          {d.location && <Text component="span" c="dimmed"> — {d.location}</Text>}
-          <Badge size="xs" ml={8} color={d.is_online ? 'green' : 'gray'} variant="dot">
-            {d.is_online ? 'online' : 'offline'}
-          </Badge>
-        </Text>
-      ))}
-    </Stack>
-  );
-}
+import { useNavigate } from 'react-router-dom';
+import { Title, Table, Badge, Switch, Text, Skeleton, Stack } from '@mantine/core';
+import { usePlugins, useTogglePlugin } from '@/hooks/plugins';
 
 export function PluginsPage() {
   const { data: plugins, isLoading } = usePlugins();
   const { mutate: toggle } = useTogglePlugin();
-  const [expanded, setExpanded] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   return (
     <Stack>
@@ -48,54 +29,32 @@ export function PluginsPage() {
             ))
           ) : plugins?.length ? (
             plugins.map((plugin) => (
-              <Fragment key={plugin.id}>
-                <Table.Tr
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => setExpanded(expanded === plugin.id ? null : plugin.id)}
-                >
-                  <Table.Td fw={500}>{plugin.display_name}</Table.Td>
-                  <Table.Td><Badge variant="light" size="sm">{plugin.plugin_type}</Badge></Table.Td>
-                  <Table.Td>
-                    <Text size="sm" c="dimmed" className="nl-mono">
-                      {plugin.version}
-                    </Text>
-                  </Table.Td>
-                  <Table.Td>
-                    {plugin.plugin_type === 'device' ? (
-                      <Text className="nl-mono">{plugin.device_count}</Text>
-                    ) : (
-                      <Text c="dimmed">—</Text>
-                    )}
-                  </Table.Td>
-                  <Table.Td onClick={(e) => e.stopPropagation()}>
-                    <Switch
-                      checked={plugin.is_active}
-                      onChange={(e) => toggle({ id: plugin.id, isActive: e.currentTarget.checked })}
-                    />
-                  </Table.Td>
-                </Table.Tr>
-                <Table.Tr>
-                  <Table.Td colSpan={5} p={0}>
-                    <Collapse expanded={expanded === plugin.id}>
-                      <Stack gap={6} p="xs">
-                        {plugin.description && (
-                          <Text size="sm" c="dimmed" maw={720} style={{ whiteSpace: 'pre-wrap' }}>
-                            {plugin.description}
-                          </Text>
-                        )}
-                        <Text size="xs" c="dimmed" className="nl-mono">
-                          {plugin.module_name}
-                        </Text>
-                        {plugin.plugin_type === 'device' ? (
-                          <PluginDevices pluginId={plugin.id} />
-                        ) : (
-                          <Text size="sm" c="dimmed">No devices — this is an integration plugin.</Text>
-                        )}
-                      </Stack>
-                    </Collapse>
-                  </Table.Td>
-                </Table.Tr>
-              </Fragment>
+              <Table.Tr
+                key={plugin.id}
+                style={{ cursor: 'pointer' }}
+                onClick={() => navigate(`/plugins/${plugin.id}`)}
+              >
+                <Table.Td fw={500}>{plugin.display_name}</Table.Td>
+                <Table.Td><Badge variant="light" size="sm">{plugin.plugin_type}</Badge></Table.Td>
+                <Table.Td>
+                  <Text size="sm" c="dimmed" className="nl-mono">
+                    {plugin.version}
+                  </Text>
+                </Table.Td>
+                <Table.Td>
+                  {plugin.plugin_type === 'device' ? (
+                    <Text className="nl-mono">{plugin.device_count}</Text>
+                  ) : (
+                    <Text c="dimmed">—</Text>
+                  )}
+                </Table.Td>
+                <Table.Td onClick={(e) => e.stopPropagation()}>
+                  <Switch
+                    checked={plugin.is_active}
+                    onChange={(e) => toggle({ id: plugin.id, isActive: e.currentTarget.checked })}
+                  />
+                </Table.Td>
+              </Table.Tr>
             ))
           ) : (
             <Table.Tr>

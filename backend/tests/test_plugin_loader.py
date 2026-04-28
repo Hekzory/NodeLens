@@ -102,3 +102,139 @@ class TestLoadPluginClass:
         plugin_dir = _make_plugin_dir(tmp_path)
         with pytest.raises(ValueError, match="not enough values to unpack"):
             load_plugin_class(plugin_dir, "plugin_without_colon")
+
+
+# ── config_schema parsing inside the manifest loader ─────────────
+
+_MANIFEST_WITH_CONFIG_SCHEMA = textwrap.dedent("""\
+    id: "10000000-0000-0000-0000-000000000001"
+    name: test_plugin
+    display_name: "Test Plugin"
+    version: "0.1.0"
+    type: device
+    entry_point: "plugin:TestPlugin"
+    config_schema:
+      - key: smtp_host
+        label: "SMTP host"
+        group: connection
+        value_type: string
+        default: "localhost"
+      - key: smtp_port
+        label: "SMTP port"
+        group: connection
+        value_type: int
+        default: 25
+        min: 1
+        max: 65535
+      - key: smtp_password
+        label: "Password"
+        group: connection
+        value_type: secret
+        default: ""
+""")
+
+
+class TestConfigSchemaParsing:
+    def test_valid_block_normalised_to_jsonable_form(self, tmp_path):
+        plugin_dir = _make_plugin_dir(tmp_path, manifest=_MANIFEST_WITH_CONFIG_SCHEMA)
+        manifest = load_manifest(plugin_dir)
+        schema = manifest["config_schema"]
+        assert isinstance(schema, list)
+        assert len(schema) == 3
+        # Every entry is a plain dict with expected keys (round-tripped through
+        # parse_schema → schema_to_jsonable).
+        first = schema[0]
+        assert first == {
+            "key": "smtp_host",
+            "label": "SMTP host",
+            "group": "connection",
+            "value_type": "string",
+            "default": "localhost",
+            "help": "",
+            "unit": None,
+            "min": None,
+            "max": None,
+            "requires_restart": False,
+        }
+        secret = schema[2]
+        assert secret["value_type"] == "secret"
+        assert secret["default"] == ""
+
+    def test_missing_required_field_raises(self, tmp_path):
+        bad = textwrap.dedent("""\
+            id: "10000000-0000-0000-0000-000000000001"
+            name: test_plugin
+            display_name: "Test Plugin"
+            version: "0.1.0"
+            type: device
+            entry_point: "plugin:TestPlugin"
+            config_schema:
+              - label: "Missing key"
+                value_type: string
+        """)
+        plugin_dir = tmp_path / "devices" / "bad"
+        plugin_dir.mkdir(parents=True)
+        (plugin_dir / "manifest.yaml").write_text(bad)
+        (plugin_dir / "plugin.py").write_text(_VALID_PLUGIN_CODE)
+        with pytest.raises(TypeError, match="config_schema invalid"):
+            load_manifest(plugin_dir)
+
+    def test_unknown_value_type_raises(self, tmp_path):
+        bad = _MANIFEST_WITH_CONFIG_SCHEMA.replace("value_type: string", "value_type: bogus")
+        plugin_dir = tmp_path / "devices" / "bad"
+        plugin_dir.mkdir(parents=True)
+        (plugin_dir / "manifest.yaml").write_text(bad)
+        (plugin_dir / "plugin.py").write_text(_VALID_PLUGIN_CODE)
+        with pytest.raises(TypeError, match="unknown value_type"):
+            load_manifest(plugin_dir)
+
+    def test_duplicate_key_raises(self, tmp_path):
+        dup = textwrap.dedent("""\
+            id: "10000000-0000-0000-0000-000000000001"
+            name: test_plugin
+            display_name: "Test Plugin"
+            version: "0.1.0"
+            type: device
+            entry_point: "plugin:TestPlugin"
+            config_schema:
+              - key: foo
+                label: "Foo"
+                value_type: string
+              - key: foo
+                label: "Foo Again"
+                value_type: int
+        """)
+        plugin_dir = tmp_path / "devices" / "dup"
+        plugin_dir.mkdir(parents=True)
+        (plugin_dir / "manifest.yaml").write_text(dup)
+        (plugin_dir / "plugin.py").write_text(_VALID_PLUGIN_CODE)
+        with pytest.raises(TypeError, match="duplicate key"):
+            load_manifest(plugin_dir)
+
+    def test_invalid_default_raises(self, tmp_path):
+        bad = textwrap.dedent("""\
+            id: "10000000-0000-0000-0000-000000000001"
+            name: test_plugin
+            display_name: "Test Plugin"
+            version: "0.1.0"
+            type: device
+            entry_point: "plugin:TestPlugin"
+            config_schema:
+              - key: port
+                label: "Port"
+                value_type: int
+                default: 0
+                min: 1
+                max: 65535
+        """)
+        plugin_dir = tmp_path / "devices" / "bad_default"
+        plugin_dir.mkdir(parents=True)
+        (plugin_dir / "manifest.yaml").write_text(bad)
+        (plugin_dir / "plugin.py").write_text(_VALID_PLUGIN_CODE)
+        with pytest.raises(TypeError, match="invalid default"):
+            load_manifest(plugin_dir)
+
+    def test_no_config_schema_block_is_fine(self, tmp_path):
+        plugin_dir = _make_plugin_dir(tmp_path)
+        manifest = load_manifest(plugin_dir)
+        assert "config_schema" not in manifest

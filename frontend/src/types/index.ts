@@ -16,6 +16,39 @@ export interface PluginUpdate {
   display_name?: string;
 }
 
+export type PluginConfigValueType = 'int' | 'float' | 'bool' | 'string' | 'secret';
+export type PluginConfigValue = string | number | boolean | null;
+
+export interface PluginConfigField {
+  key: string;
+  label: string;
+  group: string;
+  value_type: PluginConfigValueType;
+  value: PluginConfigValue;
+  default: PluginConfigValue;
+  is_default: boolean;
+  unit: string | null;
+  min: number | null;
+  max: number | null;
+  requires_restart: boolean;
+  help: string;
+}
+
+export interface PluginConfig {
+  plugin_id: string;
+  config_version: number;
+  fields: PluginConfigField[];
+}
+
+export interface PluginConfigUpdateBody {
+  updates: Record<string, PluginConfigValue>;
+}
+
+export interface PluginConfigUpdateResponse {
+  config: PluginConfig;
+  requires_restart_keys: string[];
+}
+
 // --- Devices ---
 export interface Device {
   id: string;

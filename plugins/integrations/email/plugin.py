@@ -75,9 +75,24 @@ class EmailIntegrationPlugin(IntegrationPlugin):
     name = "email"
     version = "0.1.0"
 
+    def __init__(self) -> None:
+        super().__init__()
+        # Plugin-level defaults populated by ``configure``. Each key here may
+        # be filled in by the operator via the plugin-config UI; channel-level
+        # config still wins on a per-key basis.
+        self._defaults: dict[str, Any] = {}
+
     async def configure(self, settings: dict[str, Any]) -> None:
-        # No global config — everything is per-channel.
-        return
+        self._defaults = dict(settings or {})
+        if self._defaults:
+            logger.info(
+                "Email defaults loaded: from=%s host=%s port=%s use_tls=%s password=%s",
+                self._defaults.get("default_from") or "(unset)",
+                self._defaults.get("smtp_host") or "(unset)",
+                self._defaults.get("smtp_port") or "(auto)",
+                bool(self._defaults.get("use_tls")),
+                "(set)" if self._defaults.get("smtp_password") else "(unset)",
+            )
 
     async def start(self) -> None:
         await run_dispatch_loop(self, self.ctx.plugin_id)
@@ -92,13 +107,38 @@ class EmailIntegrationPlugin(IntegrationPlugin):
             logger.error("Channel config missing required 'to' field")
             return False
 
-        host = (channel_config.get("smtp_host") or "").strip()
-        port = int(channel_config.get("smtp_port") or 0)
-        from_addr = channel_config.get("from", "alerts@nodelens.local")
+        # Channel config wins; fall back to plugin-level defaults; final
+        # fallback to the historical hard-coded values so unconfigured
+        # deployments behave exactly as before.
+        defaults = self._defaults
+        host = (
+            channel_config.get("smtp_host")
+            or defaults.get("smtp_host")
+            or ""
+        ).strip()
+        port = int(
+            channel_config.get("smtp_port")
+            or defaults.get("smtp_port")
+            or 0
+        )
+        from_addr = (
+            channel_config.get("from")
+            or defaults.get("default_from")
+            or "alerts@nodelens.local"
+        )
         subject = channel_config.get("subject") or f"[NodeLens] {message.rule_name}"
         username = channel_config.get("username") or None
-        password = channel_config.get("password") or None
-        use_tls = bool(channel_config.get("use_tls", False))
+        password = (
+            channel_config.get("password")
+            or defaults.get("smtp_password")
+            or None
+        )
+        # Treat a missing key as "use plugin default"; an explicit False on
+        # the channel disables TLS even if the plugin default has it on.
+        if "use_tls" in channel_config:
+            use_tls = bool(channel_config["use_tls"])
+        else:
+            use_tls = bool(defaults.get("use_tls", False))
         start_tls = bool(channel_config.get("start_tls", False))
 
         if not host:

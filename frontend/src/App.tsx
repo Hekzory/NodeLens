@@ -13,6 +13,7 @@ const DashboardPage = lazy(() => import('@/pages/DashboardPage').then(m => ({ de
 const DevicesPage = lazy(() => import('@/pages/DevicesPage').then(m => ({ default: m.DevicesPage })));
 const DeviceDetailPage = lazy(() => import('@/pages/DeviceDetailPage').then(m => ({ default: m.DeviceDetailPage })));
 const PluginsPage = lazy(() => import('@/pages/PluginsPage').then(m => ({ default: m.PluginsPage })));
+const PluginDetailPage = lazy(() => import('@/pages/PluginDetailPage').then(m => ({ default: m.PluginDetailPage })));
 const AlertsPage = lazy(() => import('@/pages/AlertsPage').then(m => ({ default: m.AlertsPage })));
 const SystemSettingsPage = lazy(() => import('@/pages/SystemSettingsPage').then(m => ({ default: m.SystemSettingsPage })));
 const LoginPage = lazy(() => import('@/pages/LoginPage').then(m => ({ default: m.LoginPage })));
@@ -63,6 +64,7 @@ const router = createBrowserRouter([
       { path: '/devices', element: <DevicesPage /> },
       { path: '/devices/:id', element: <DeviceDetailPage /> },
       { path: '/plugins', element: <PluginsPage /> },
+      { path: '/plugins/:id', element: <PluginDetailPage /> },
       { path: '/alerts', element: <AlertsPage /> },
       { path: '/users', element: <UsersPage /> },
       { path: '/settings', element: <SystemSettingsPage /> },

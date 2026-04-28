@@ -161,3 +161,58 @@ class TestEmailSend:
         assert kwargs["port"] == 587
         assert kwargs["start_tls"] is True
         assert kwargs["use_tls"] is False
+
+
+class TestPluginLevelDefaults:
+    async def test_plugin_defaults_fill_missing_channel_keys(self, plugin, stub_aiosmtplib):
+        await plugin.configure({
+            "default_from": "noreply@nodelens.test",
+            "smtp_host": "relay.nodelens.test",
+            "smtp_port": 2525,
+            "use_tls": True,
+            "smtp_password": "shared-secret",
+        })
+        cfg = {"to": "ops@example.com", "username": "shared-user"}
+        ok = await plugin.send(cfg, _msg())
+        assert ok is True
+        kwargs = stub_aiosmtplib.send.await_args.kwargs
+        assert kwargs["hostname"] == "relay.nodelens.test"
+        assert kwargs["port"] == 2525
+        assert kwargs["use_tls"] is True
+        assert kwargs["username"] == "shared-user"
+        assert kwargs["password"] == "shared-secret"
+        sent_msg = stub_aiosmtplib.send.await_args.args[0]
+        assert sent_msg["From"] == "noreply@nodelens.test"
+
+    async def test_channel_overrides_plugin_defaults(self, plugin, stub_aiosmtplib):
+        await plugin.configure({
+            "default_from": "noreply@nodelens.test",
+            "smtp_host": "relay.nodelens.test",
+            "smtp_port": 2525,
+            "use_tls": True,
+        })
+        cfg = {
+            "to": "ops@example.com",
+            "smtp_host": "channel.example.com",
+            "smtp_port": 1025,
+            "from": "channel-from@example.com",
+            "use_tls": False,
+        }
+        await plugin.send(cfg, _msg())
+        kwargs = stub_aiosmtplib.send.await_args.kwargs
+        assert kwargs["hostname"] == "channel.example.com"
+        assert kwargs["port"] == 1025
+        assert kwargs["use_tls"] is False
+        sent_msg = stub_aiosmtplib.send.await_args.args[0]
+        assert sent_msg["From"] == "channel-from@example.com"
+
+    async def test_no_configure_keeps_legacy_behaviour(self, plugin, stub_aiosmtplib):
+        # Plugin instantiated without configure() — defaults dict empty, the
+        # hardcoded fallbacks must still kick in unchanged.
+        cfg = {"to": "ops@example.com", "smtp_host": "mail.example.com"}
+        await plugin.send(cfg, _msg())
+        kwargs = stub_aiosmtplib.send.await_args.kwargs
+        assert kwargs["hostname"] == "mail.example.com"
+        assert kwargs["port"] == 25
+        sent_msg = stub_aiosmtplib.send.await_args.args[0]
+        assert sent_msg["From"] == "alerts@nodelens.local"
