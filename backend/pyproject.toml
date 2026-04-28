@@ -17,6 +17,8 @@ dependencies = [
     "fastapi>=0.136.1,<1",
     "granian[pname,uvloop]>=2.7.4,<3",
     "alembic>=1.18,<2",
+    "bcrypt>=5.0,<6",
+    "itsdangerous>=2.2,<3",
 ]
 
 [project.optional-dependencies]
@@ -100,6 +102,15 @@ ignore = [
     "PLR0912",   # too many branches
     "PLR0917",   # too many positional arguments
     "PLW0603",   # using global statement to update
+    # TC001/TC002/TC003 want imports moved into TYPE_CHECKING blocks when the
+    # name is "only used in annotations". FastAPI (Depends-injected params,
+    # path/body types) and Pydantic (field types) resolve those annotations at
+    # runtime via `get_type_hints()`, even with `from __future__ import
+    # annotations`. Moving the imports under TYPE_CHECKING would break route
+    # registration and Pydantic model schemas at import time.
+    "TC001",
+    "TC002",
+    "TC003",
 ]
 
 [tool.ruff.lint.flake8-bugbear]

@@ -55,10 +55,10 @@ async def list_settings(db: AsyncSession = Depends(get_db)):
     """All registered settings with current effective values + metadata."""
     rows = await _row_map(db)
     values = await runtime_settings.get_all()
-    out: list[SystemSettingRead] = []
-    for spec in iter_settings():
-        out.append(_to_read(spec, values[spec.key], rows.get(spec.key)))
-    return out
+    return [
+        _to_read(spec, values[spec.key], rows.get(spec.key))
+        for spec in iter_settings()
+    ]
 
 
 @router.get("/{key}", response_model=SystemSettingRead)

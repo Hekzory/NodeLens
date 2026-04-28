@@ -1,3 +1,5 @@
+import { authEvents } from '@/lib/authEvents';
+
 export function buildQueryString(params: Record<string, string | number | boolean | undefined | null>): string {
   const qs = new URLSearchParams();
   for (const [key, val] of Object.entries(params)) {
@@ -29,9 +31,15 @@ async function extractErrorMessage(res: Response): Promise<string> {
 
 export async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
   const res = await fetch(url, {
+    credentials: 'include',
     ...options,
     headers: { 'Content-Type': 'application/json', ...options?.headers },
   });
+  if (res.status === 401) {
+    authEvents.emitUnauthorized();
+    const detail = await extractErrorMessage(res);
+    throw new Error(`401 ${detail}`);
+  }
   if (!res.ok) {
     throw new Error(`${res.status} ${await extractErrorMessage(res)}`);
   }

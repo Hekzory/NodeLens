@@ -6,6 +6,7 @@ from nodelens.db.models.plugin import Plugin
 from nodelens.db.models.sensor import Sensor
 from nodelens.db.models.system_setting import SystemSetting
 from nodelens.db.models.telemetry import TelemetryRecord
+from nodelens.db.models.user import User
 
 __all__ = [
     "Plugin",
@@ -19,4 +20,5 @@ __all__ = [
     "Dashboard",
     "DashboardWidget",
     "SystemSetting",
+    "User",
 ]

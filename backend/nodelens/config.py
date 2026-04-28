@@ -1,5 +1,10 @@
+import logging
+import secrets
+
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings
+
+_logger = logging.getLogger("nodelens.config")
 
 
 class Settings(BaseSettings):
@@ -10,6 +15,19 @@ class Settings(BaseSettings):
 
     API_HOST: str = "0.0.0.0"
     API_PORT: int = 8000
+
+    # ── Auth / sessions ─────────────────────────────────────────────
+    # Signed cookie session via Starlette's SessionMiddleware. SESSION_SECRET
+    # MUST be set in production via env var; if missing, an ephemeral random
+    # secret is generated at boot and a warning is logged — sessions then
+    # invalidate on every API restart.
+    SESSION_SECRET: str = ""
+    SESSION_COOKIE_NAME: str = "nodelens_session"
+    SESSION_LIFETIME_DAYS: int = Field(default=30, gt=0)
+    SESSION_COOKIE_SECURE: bool = False
+    CORS_ALLOWED_ORIGINS: list[str] = Field(
+        default_factory=lambda: ["http://localhost", "http://localhost:5173"]
+    )
 
     NO_DATA_SCAN_INTERVAL_SECONDS: int = Field(default=5, gt=0)
 
@@ -38,6 +56,16 @@ class Settings(BaseSettings):
             raise ValueError(
                 "COMPRESSION_AFTER_DAYS must be < RETENTION_DAYS — otherwise chunks "
                 "are dropped before they ever get compressed."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _session_secret_fallback(self) -> "Settings":
+        if not self.SESSION_SECRET:
+            self.SESSION_SECRET = secrets.token_urlsafe(32)
+            _logger.warning(
+                "SESSION_SECRET is not set; generated an ephemeral one. "
+                "Set SESSION_SECRET in .env to keep sessions across API restarts."
             )
         return self
 

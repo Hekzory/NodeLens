@@ -1,6 +1,8 @@
-"""Performance middleware for the NodeLens API."""
+"""Performance + safety middleware for the NodeLens API."""
 
 import zlib
+
+from nodelens.config import settings
 
 
 class ETagMiddleware:
@@ -68,3 +70,47 @@ class ETagMiddleware:
 
         await send({"type": "http.response.start", "status": status_code, "headers": response_headers})
         await send({"type": "http.response.body", "body": body})
+
+
+class OriginCheckMiddleware:
+    """CSRF defence-in-depth: reject state-changing requests whose ``Origin``
+    header doesn't match a configured allow-list.
+
+    SameSite=Lax cookies plus same-origin nginx already cover the realistic
+    browser CSRF surface. This middleware is a cheap belt-and-braces guard:
+    if a malicious page in another origin tricks the browser into POSTing,
+    the browser will send ``Origin``, and we reject it. Requests without an
+    ``Origin`` header (curl/CLI/server-to-server) are allowed through —
+    they aren't a CSRF vector.
+    """
+
+    UNSAFE_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http" or scope.get("method", "") not in self.UNSAFE_METHODS:
+            await self.app(scope, receive, send)
+            return
+
+        origin = ""
+        for name, value in scope.get("headers", []):
+            if name == b"origin":
+                origin = value.decode("latin-1")
+                break
+
+        if origin and origin not in settings.CORS_ALLOWED_ORIGINS:
+            body = b'{"detail":"Forbidden origin"}'
+            await send({
+                "type": "http.response.start",
+                "status": 403,
+                "headers": [
+                    (b"content-type", b"application/json"),
+                    (b"content-length", str(len(body)).encode()),
+                ],
+            })
+            await send({"type": "http.response.body", "body": body})
+            return
+
+        await self.app(scope, receive, send)

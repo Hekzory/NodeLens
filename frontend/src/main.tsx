@@ -11,19 +11,32 @@ import App from './App';
 import { theme } from './theme';
 import { applyPollingInterval, queryClient } from '@/lib/queryClient';
 import { fetchSystemSettings } from '@/api/systemSettings';
+import { fetchAuthStatus } from '@/api/auth';
 
-// Bootstrap the dashboard polling cadence from the DB-backed setting before
-// mounting React. If the call fails (offline / fresh DB) we keep the fallback
-// hardcoded in queryClient.ts so the app still renders.
+// Bootstrap before mounting React:
+//  • dashboard polling cadence (DB-backed system setting)
+//  • auth status (so the router renders the right shell on first paint and
+//    avoids flashing /login while the in-app fetch is still in flight)
+// If either call fails we fall through with sensible defaults — the app
+// still renders, the router will refetch /api/auth/status if needed, and
+// the polling fallback is the hardcoded value in queryClient.ts.
 async function bootstrap() {
-  try {
-    const settings = await fetchSystemSettings();
-    const polling = settings.find((s) => s.key === 'frontend_polling_interval_seconds');
+  const [settingsResult, statusResult] = await Promise.allSettled([
+    fetchSystemSettings(),
+    fetchAuthStatus(),
+  ]);
+
+  if (settingsResult.status === 'fulfilled') {
+    const polling = settingsResult.value.find(
+      (s) => s.key === 'frontend_polling_interval_seconds',
+    );
     if (polling && typeof polling.value === 'number') {
       applyPollingInterval(polling.value);
     }
-  } catch {
-    /* leave fallback in place */
+  }
+
+  if (statusResult.status === 'fulfilled') {
+    queryClient.setQueryData(['auth', 'status'], statusResult.value);
   }
 
   if (import.meta.env.DEV) {

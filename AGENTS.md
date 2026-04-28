@@ -62,7 +62,7 @@ Target scale:
 
 The container/component layout is fixed and should be preserved.
 
-There are **8 containers**:
+There are **8 containers** (auth is enforced at the API layer; workers and Redis/MQTT do not authenticate):
 
 1. **Web frontend**
    - React 19 + TypeScript, Vite, pnpm
@@ -349,6 +349,7 @@ Currently implemented parts:
 - `nodelens/constants.py` → stream/group constants for `telemetry_events`, `registration_events`, and `alert_dispatch_events`
 - `nodelens/db` → SQLAlchemy base, async session, models (Plugin, Device, Sensor, TelemetryRecord, AlertRule, AlertHistory, NotificationChannel, AlertRuleChannel, Dashboard, DashboardWidget, SystemSetting)
 - `nodelens/system_settings` → DB-backed runtime configuration: `REGISTRY` (declarative metadata per setting), `RuntimeSettings` (per-process TTL cache over `system_settings` table, falls back to `config.settings` defaults), module-level singleton `runtime_settings`. Hot-loop call sites (`workers/ingestor/retention.py`, `api/routes/devices.py`, etc.) read through this cache so changes apply within the cache TTL; settings consumed once-at-startup are flagged `requires_restart` in the registry.
+- `nodelens/auth` → password hashing (`bcrypt`), session-cookie auth dependencies (`get_current_user`, `get_current_user_optional`). Uses Starlette's `SessionMiddleware` (signed cookie) — no session table; `users.is_active=False` or row deletion is what locks a user out.
 - `nodelens/redis` → Redis client + stream helpers + shared `parse_telemetry_event`
 - `nodelens/schemas/events.py` → TelemetryEvent, AlertMessage, RegisterPluginEvent, RegisterDeviceEvent, RegisterSensorEvent
 - `nodelens/sdk` → plugin SDK (BasePlugin, DevicePlugin, IntegrationPlugin, PluginContext, exceptions, `run_dispatch_loop`)
@@ -400,7 +401,22 @@ Expected concerns:
 
 Exact routes and payloads:
 
-**Health** `health.py`
+**Auth** `auth.py` *(public — `/setup` and `/login`; the rest require a session)*
+- `GET /api/auth/status` — `{setup_required, authenticated, user}` (drives the SPA's login/setup gate)
+- `POST /api/auth/setup` — create the first user (409 if any user already exists); also opens a session
+- `POST /api/auth/login` — authenticate; sets the `nodelens_session` signed cookie
+- `POST /api/auth/logout` — clear `request.session`
+- `GET /api/auth/me` — current user
+- `POST /api/auth/password` — change own password (verifies old)
+
+**Users** `users.py` *(all auth-gated; no roles — every signed-in user can manage users)*
+- `GET /api/users` — list
+- `POST /api/users` — create
+- `PATCH /api/users/{user_id}` — update `username` / `is_active` (rejects deactivating self or the last active user)
+- `DELETE /api/users/{user_id}` — hard delete (rejects deleting self or the last active user)
+- `POST /api/users/{user_id}/password` — admin password reset (no old-password check)
+
+**Health** `health.py` *(public — uptime probes)*
 - `GET /api/health` — liveness
 - `GET /api/health/db` — DB check
 - `GET /api/health/redis` — Redis check
@@ -546,6 +562,14 @@ Current implemented schema subset:
   - `value: JSONB`
   - `updated_at: TIMESTAMPTZ`
   - Sparse: a row's presence means an operator override; a missing key means "use registry default" (which is itself sourced from `nodelens.config.settings`). Authoritative metadata (label, type, default, validation, `requires_restart`) lives in the Python registry — only user-set values live in the DB.
+
+- `users`
+  - `id: UUID` (PK)
+  - `username: VARCHAR(64)` (unique, indexed; pattern `^[A-Za-z0-9_.\-]+$`)
+  - `password_hash: VARCHAR(255)` (bcrypt, 72-byte input cap enforced via Pydantic schema)
+  - `is_active: BOOLEAN` (false locks the user out without deleting the row; deactivation/deletion of the last active user is rejected by the API)
+  - `created_at, updated_at, last_login_at: TIMESTAMPTZ`
+  - No session table — sessions are signed cookies via Starlette's `SessionMiddleware`. Cookie name `nodelens_session`, default lifetime 30 days; signing key from `SESSION_SECRET` env var (or an ephemeral random one with a startup warning).
 
 Full future application schema beyond this subset:
 - [this part is not currently implemented, will be replaced with details of internals later]
@@ -732,6 +756,9 @@ Current relevant env vars:
 - `LOG_LEVEL` *(env-only)*
 - `PLUGINS_DIR` *(env-only — startup discovery path)*
 - `API_HOST`, `API_PORT` *(env-only — socket binding)*
+- `SESSION_SECRET` *(env-only — signing key for the `nodelens_session` cookie; if unset, an ephemeral one is generated at startup and sessions invalidate on every API restart)*
+- `SESSION_COOKIE_NAME`, `SESSION_LIFETIME_DAYS`, `SESSION_COOKIE_SECURE` *(env-only — auth cookie attributes; defaults: `nodelens_session`, 30, false)*
+- `CORS_ALLOWED_ORIGINS` *(env-only list — both the CORS allow-list and the CSRF Origin-check allow-list; default `http://localhost,http://localhost:5173`)*
 
 The values below are seed defaults — when a row is present in the `system_settings` table it overrides the env value. Edit them at runtime via `GET/PATCH /api/system/settings` or the System Settings UI:
 - `NO_DATA_SCAN_INTERVAL_SECONDS` (alerts worker; default 5; restart required)
@@ -765,8 +792,7 @@ Future full 8-service compose layout:
 ## What future agents should NOT assume
 
 Do not assume any of the following already exist unless they are explicitly implemented in code:
-- authentication system
-- finalized full application database schema beyond the implemented subset (ingestion + alerts + dashboards)
+- finalized full application database schema beyond the implemented subset (ingestion + alerts + dashboards + users)
 - finalized Redis/event contracts beyond telemetry, registration, and alert-dispatch
 - plugin hot-reloading
 - plugin security sandboxing
@@ -774,6 +800,10 @@ Do not assume any of the following already exist unless they are explicitly impl
 - per-channel message templating
 - observability stack
 - production hardening
+- rate limiting on the login endpoint
+- "log out everywhere" / per-user session invalidation on password change
+- password reset via email
+- role-based access control (every authenticated user has full admin rights)
 
 For all of the above, use:
 - [this part is not currently implemented, will be replaced with details of internals later]
@@ -817,7 +847,8 @@ Current implemented slice:
 - Plugin SDK (BasePlugin, DevicePlugin, IntegrationPlugin, PluginContext, `run_dispatch_loop`)
 - Built-in `demo_sender` device plugin (generates synthetic telemetry)
 - Built-in `email` integration plugin (plain SMTP via aiosmtplib)
-- Frontend MVP (dashboard, devices, plugins, alerts, **system settings** pages)
+- Authentication: signed-cookie sessions (Starlette `SessionMiddleware`), bcrypt password hashing, single-role multi-user model, first-run `/setup` gate, defence-in-depth `Origin`-check middleware on state-changing requests
+- Frontend MVP (dashboard, devices, plugins, alerts, **system settings**, **users** pages, **/login** + **/setup** gates)
 - DB-backed runtime configuration (`system_settings` table + `nodelens.system_settings` registry/service)
 - Registration stream for idempotent plugin/device/sensor metadata upserts
 

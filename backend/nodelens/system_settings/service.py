@@ -141,7 +141,7 @@ class RuntimeSettings:
         unknown = [k for k in keys if k not in REGISTRY]
         if unknown:
             raise SettingsValidationError(
-                field_errors={k: "unknown setting" for k in unknown}
+                field_errors=dict.fromkeys(unknown, "unknown setting")
             )
         if not keys:
             return

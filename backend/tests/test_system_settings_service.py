@@ -15,7 +15,6 @@ from nodelens.system_settings.registry import (
 )
 from nodelens.system_settings.service import SettingsValidationError
 
-
 # ── Registry coercion / validation ─────────────────────────────────
 
 
@@ -27,27 +26,27 @@ class TestCoerce:
 
     def test_int_rejects_bool(self):
         # JSON booleans are technically ints in Python; we treat them strictly.
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="must be an integer, got bool"):
             REGISTRY["retention_days"].coerce(True)
 
     def test_int_rejects_non_integer_float(self):
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="must be an integer"):
             REGISTRY["retention_days"].coerce(7.5)
 
     def test_int_rejects_string(self):
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="must be an integer"):
             REGISTRY["retention_days"].coerce("365")
 
 
 class TestValidate:
     def test_below_min_rejected(self):
         spec = REGISTRY["retention_days"]
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="must be >="):
             spec.validate(0)
 
     def test_above_max_rejected(self):
         spec = REGISTRY["retention_days"]
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="must be <="):
             spec.validate(spec.max + 1)
 
     def test_within_bounds_accepted(self):
@@ -55,7 +54,7 @@ class TestValidate:
 
 
 def test_cross_field_compression_must_be_below_retention():
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="compression_after_days"):
         cross_field_invariants(
             {"retention_days": 7, "compression_after_days": 7}
         )

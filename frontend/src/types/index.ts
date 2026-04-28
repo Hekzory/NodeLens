@@ -279,3 +279,29 @@ export interface SystemSettingsUpdateResponse {
   updated: SystemSetting[];
   requires_restart_keys: string[];
 }
+
+// --- Auth & users ---
+export interface UserRead {
+  id: string;
+  username: string;
+  is_active: boolean;
+  created_at: string;
+  last_login_at: string | null;
+}
+
+export interface AuthStatus {
+  setup_required: boolean;
+  authenticated: boolean;
+  user: UserRead | null;
+}
+
+export interface UserCreate {
+  username: string;
+  password: string;
+  is_active?: boolean;
+}
+
+export interface UserUpdate {
+  username?: string;
+  is_active?: boolean;
+}
