@@ -36,7 +36,10 @@ def run_pytest() -> int:
         "-q",
         *sys.argv[1:],
     ]
-    result = subprocess.run(cmd, cwd=BACKEND, check=True)
+    # check=False: with `fail_under` in pyproject.toml, pytest-cov exits 1 when
+    # coverage drops below the gate. We still want to print the per-module table
+    # in that case, so the operator can see which module regressed.
+    result = subprocess.run(cmd, cwd=BACKEND, check=False)
     return result.returncode
 
 
@@ -85,10 +88,14 @@ def parse_coverage(path: Path) -> dict:
     }
 
 
-def print_report(junit: dict, cov: dict):
+# Must match `fail_under` in backend/pyproject.toml [tool.coverage.report].
+COVERAGE_GATE = 80.0
+
+
+def print_report(junit: dict, cov: dict, exit_code: int):
     """Print compact diploma-friendly report."""
     passed = junit["tests"] - junit["failures"] - junit["errors"] - junit["skipped"]
-    all_passed = junit["failures"] == 0 and junit["errors"] == 0
+    tests_passed = junit["failures"] == 0 and junit["errors"] == 0
 
     w = 58
     print(f"{BOLD}{'=' * w}")
@@ -96,7 +103,7 @@ def print_report(junit: dict, cov: dict):
     print(f"{'=' * w}{RESET}")
 
     # Test results row
-    status = f"{GREEN}ALL PASSED{RESET}" if all_passed else f"{RED}FAILURES DETECTED{RESET}"
+    status = f"{GREEN}ALL PASSED{RESET}" if tests_passed else f"{RED}FAILURES DETECTED{RESET}"
     print(f"  {BOLD}Tests:{RESET}  {passed} passed", end="")
     if junit["failures"]:
         print(f", {RED}{junit['failures']} failed{RESET}", end="")
@@ -107,12 +114,13 @@ def print_report(junit: dict, cov: dict):
     print(f"  |  {BOLD}Total:{RESET} {junit['tests']}  |  {status}")
     print(f"  {BOLD}Time:{RESET}   {junit['time']:.2f}s")
 
-    # Coverage summary
+    # Coverage summary — green only when above the gate.
     pct = cov["total_pct"]
-    color = GREEN if pct >= 70 else YELLOW if pct >= 50 else RED
-    print(f"  {BOLD}Coverage:{RESET} {color}{pct:.1f}%{RESET}  ({cov['total_stmts'] - cov['total_miss']}/{cov['total_stmts']} statements)")
+    color = GREEN if pct >= COVERAGE_GATE else YELLOW if pct >= 70 else RED
+    gate_marker = "" if pct >= COVERAGE_GATE else f"  {RED}(below {COVERAGE_GATE:.0f}% gate){RESET}"
+    print(f"  {BOLD}Coverage:{RESET} {color}{pct:.1f}%{RESET}  ({cov['total_stmts'] - cov['total_miss']}/{cov['total_stmts']} statements){gate_marker}")
 
-    # Per-module coverage table
+    # Per-module coverage table — independent thresholds for at-a-glance scan.
     print(f"\n  {DIM}{'Module':<22} Stmts   Miss    Cover{RESET}")
     print(f"  {DIM}{'-' * 48}{RESET}")
     for mod, info in cov["modules"].items():
@@ -123,8 +131,9 @@ def print_report(junit: dict, cov: dict):
 
     print(f"{BOLD}{'=' * w}{RESET}")
 
-    # Final verdict
-    if all_passed:
+    # Final verdict — driven by pytest's exit code, which already accounts for
+    # both test failures and the fail_under coverage gate.
+    if exit_code == 0:
         print(f"  {GREEN}{BOLD}Result: PASS{RESET}")
     else:
         print(f"  {RED}{BOLD}Result: FAIL{RESET}")
@@ -140,7 +149,7 @@ def main():
     try:
         junit = parse_junit(JUNIT_XML)
         cov = parse_coverage(COV_JSON)
-        print_report(junit, cov)
+        print_report(junit, cov, exit_code)
     except Exception as e:  # noqa: BLE001
         print(f"\n{RED}Could not generate report: {e}{RESET}", file=sys.stderr)
     finally:

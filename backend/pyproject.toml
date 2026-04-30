@@ -37,12 +37,24 @@ testpaths = ["tests"]
 
 [tool.coverage.run]
 source = ["nodelens"]
+# Omits are reserved for process entry points and top-level glue: code that
+# does nothing but compose already-tested units inside a `while True` /
+# `asyncio.run(...)` shell. Unit-testing them would require mocking out every
+# callee, which only verifies the mocks. They're covered (when at all) by
+# integration tests, not pytest.
 omit = [
     "nodelens/__main__.py",
     "nodelens/*/__main__.py",
     "nodelens/*/*/__main__.py",
+    # FastAPI app factory + ASGI middleware — wired up at process start.
     "nodelens/api/app.py",
     "nodelens/api/middleware.py",
+    # Worker main loops: Redis stream poll → call already-tested writer/evaluator/dispatcher.
+    "nodelens/workers/ingestor/consumer.py",
+    "nodelens/workers/alerts/engine.py",
+    # `python -m` subprocess entry point that drives the plugin lifecycle
+    # using already-tested loader / config / context / SDK code.
+    "nodelens/workers/plugin_runner/run_single.py",
 ]
 
 [tool.coverage.report]
@@ -54,6 +66,7 @@ exclude_lines = [
 ]
 show_missing = false
 precision = 1
+fail_under = 80
 
 [tool.hatch.build.targets.wheel]
 packages = ["nodelens"]
