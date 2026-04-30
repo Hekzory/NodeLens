@@ -1,0 +1,53 @@
+id: "40000000-0000-0000-0000-000000000002"
+name: telegram
+display_name: "Telegram"
+version: "0.1.0"
+type: integration
+entry_point: "plugin:TelegramIntegrationPlugin"
+description: >
+  Sends alert messages via the Telegram Bot API. Plugin-level `bot_token`
+  is shared across all channels; per-channel config supplies `chat_id` and
+  may override the token, parse mode, silent flag, and forum thread id.
+  When the plugin-level token is set, the bot also long-polls getUpdates
+  for `/start` so any chat can self-discover its chat_id and learn whether
+  it is currently subscribed to alerts.
+
+config_schema:
+  - key: bot_token
+    label: "Bot token"
+    group: identity
+    value_type: secret
+    default: ""
+    help: >-
+      BotFather token. Channel-level `bot_token` (if set) overrides this
+      for that channel only. Stored in plain JSONB — treat the database
+      as trusted.
+  - key: default_parse_mode
+    label: "Default parse mode"
+    group: formatting
+    value_type: string
+    default: ""
+    help: >-
+      One of: '', 'Markdown', 'MarkdownV2', 'HTML'. Empty = plain text
+      (safest — special characters in rule/device names cannot break
+      Telegram's parser).
+  - key: api_base_url
+    label: "API base URL"
+    group: connection
+    value_type: string
+    default: "https://api.telegram.org"
+    help: "Override only for testing or behind a forwarding proxy."
+  - key: request_timeout_s
+    label: "Request timeout"
+    group: connection
+    value_type: int
+    default: 15
+    min: 1
+    max: 120
+    unit: s
+  - key: disable_notification
+    label: "Silent by default"
+    group: formatting
+    value_type: bool
+    default: false
+    help: "Send messages with no notification sound. Per-channel can override."

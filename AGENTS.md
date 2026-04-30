@@ -18,7 +18,7 @@ Important:
   - Redis Streams
   - Web backend (FastAPI)
   - Ingestor
-  - Plugins worker (with a built-in demo_sender device plugin and an `email` integration plugin)
+  - Plugins worker (with a built-in demo_sender device plugin and built-in `email` + `telegram` integration plugins)
   - Alert processor (consumes telemetry, evaluates rules, dispatches via integration plugins)
   - Frontend (React + nginx)
 - `docker-compose.yml` currently starts 8 services: `postgres`, `redis`, `mosquitto`, `ingestor`, `alerts`, `plugins`, `api`, `frontend`.
@@ -116,7 +116,7 @@ Current implementation note:
   4. Web backend (FastAPI)
   5. Ingestor
   6. Alert processor
-  7. Plugins worker (with `email` integration plugin)
+  7. Plugins worker (with `email` and `telegram` integration plugins)
   8. Frontend (React, served by nginx)
 - MQTT broker (Eclipse Mosquitto 2.0) is deployed and reachable at `mosquitto:1883` on the compose network (anonymous, no TLS). No MQTT device plugin consumes from it yet — see plugin model section.
 
@@ -270,6 +270,7 @@ Mechanism:
 
 Examples:
 - `email` (built-in) — plain SMTP via aiosmtplib (no auth, no TLS verification). Channel config: `to`, `smtp_host`, `smtp_port`, `from`, `subject` (optional).
+- `telegram` (built-in) — Telegram Bot API via `httpx`. Plugin-level config holds the shared `bot_token`, `default_parse_mode`, `api_base_url`, `request_timeout_s`, `disable_notification`. Per-channel config: `chat_id` (required; numeric or `@channel_name`), and optional `bot_token`, `parse_mode` (`""`/`Markdown`/`MarkdownV2`/`HTML`, default empty for plain text), `disable_notification`, `message_thread_id`. When the plugin-level token is set, the plugin also long-polls `getUpdates` and replies to `/start` from any chat: subscribed chats get a confirmation; unknown chats get their numeric chat_id echoed back with an instruction to ask the operator to add it under Alerts → Channels.
 
 ### Plugin placement
 - user-facing plugin folders live under root `plugins/devices/` and `plugins/integrations/`
@@ -594,7 +595,7 @@ Current implemented stream structures:
 
 **Alert dispatch stream:**
 - stream name: `alert_dispatch_events`
-- one consumer group per integration plugin: `dispatch_<module_name>` (e.g. `dispatch_email`)
+- one consumer group per integration plugin: `dispatch_<module_name>` (e.g. `dispatch_email`, `dispatch_telegram`)
 - consumer name: `<module_name>-1`
 - fields: `plugin_id`, `channel_id`, `channel_config_json`, `alert_message_json`
 - integration plugins skip + ack events whose `plugin_id` does not match their own; on matches they decode the JSON fields and call `IntegrationPlugin.send(channel_config, message)`
@@ -849,6 +850,7 @@ Current implemented slice:
 - Plugin SDK (BasePlugin, DevicePlugin, IntegrationPlugin, PluginContext, `run_dispatch_loop`)
 - Built-in `demo_sender` device plugin (generates synthetic telemetry)
 - Built-in `email` integration plugin (plain SMTP via aiosmtplib)
+- Built-in `telegram` integration plugin (Telegram Bot API via httpx; long-polls `/start` for chat-id self-discovery)
 - Authentication: signed-cookie sessions (Starlette `SessionMiddleware`), bcrypt password hashing, single-role multi-user model, first-run `/setup` gate, defence-in-depth `Origin`-check middleware on state-changing requests
 - Frontend MVP (dashboard, devices, plugins, alerts, **system settings**, **users** pages, **/login** + **/setup** gates)
 - DB-backed runtime configuration (`system_settings` table + `nodelens.system_settings` registry/service)

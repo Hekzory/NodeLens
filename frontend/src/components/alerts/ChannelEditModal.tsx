@@ -24,11 +24,22 @@ interface EmailConfig {
   start_tls: boolean;
 }
 
+type TelegramParseMode = '' | 'Markdown' | 'MarkdownV2' | 'HTML';
+
+interface TelegramConfig {
+  chat_id: string;
+  bot_token: string;
+  parse_mode: TelegramParseMode;
+  disable_notification: boolean;
+  message_thread_id: number | null;
+}
+
 interface FormValues {
   name: string;
   plugin_id: string;
   is_active: boolean;
   email: EmailConfig;
+  telegram: TelegramConfig;
   rawJson: string;
 }
 
@@ -47,8 +58,23 @@ const EMPTY: FormValues = {
     use_tls: false,
     start_tls: false,
   },
+  telegram: {
+    chat_id: '',
+    bot_token: '',
+    parse_mode: '',
+    disable_notification: false,
+    message_thread_id: null,
+  },
   rawJson: '{}',
 };
+
+const TELEGRAM_PARSE_MODES: TelegramParseMode[] = ['', 'Markdown', 'MarkdownV2', 'HTML'];
+
+function coerceParseMode(value: unknown): TelegramParseMode {
+  return typeof value === 'string' && (TELEGRAM_PARSE_MODES as string[]).includes(value)
+    ? (value as TelegramParseMode)
+    : '';
+}
 
 export function ChannelEditModal({ opened, onClose, onSubmit, initial, isPending }: Props) {
   const { data: plugins } = usePlugins();
@@ -58,11 +84,13 @@ export function ChannelEditModal({ opened, onClose, onSubmit, initial, isPending
 
   const selected = integrationPlugins.find((p) => p.id === form.values.plugin_id);
   const isEmail = selected?.module_name === 'email';
+  const isTelegram = selected?.module_name === 'telegram';
 
   useEffect(() => {
     if (!opened) return;
     if (initial) {
-      const cfg = (initial.config ?? {}) as Partial<EmailConfig> & Record<string, unknown>;
+      const cfg = (initial.config ?? {}) as Record<string, unknown>;
+      const cfgChatId = cfg.chat_id;
       form.setValues({
         name: initial.name,
         plugin_id: initial.plugin_id,
@@ -78,6 +106,19 @@ export function ChannelEditModal({ opened, onClose, onSubmit, initial, isPending
           use_tls: cfg.use_tls === true,
           start_tls: cfg.start_tls === true,
         },
+        telegram: {
+          chat_id:
+            typeof cfgChatId === 'string'
+              ? cfgChatId
+              : typeof cfgChatId === 'number'
+                ? String(cfgChatId)
+                : '',
+          bot_token: typeof cfg.bot_token === 'string' ? cfg.bot_token : '',
+          parse_mode: coerceParseMode(cfg.parse_mode),
+          disable_notification: cfg.disable_notification === true,
+          message_thread_id:
+            typeof cfg.message_thread_id === 'number' ? cfg.message_thread_id : null,
+        },
         rawJson: JSON.stringify(initial.config ?? {}, null, 2),
       });
     } else {
@@ -88,7 +129,21 @@ export function ChannelEditModal({ opened, onClose, onSubmit, initial, isPending
 
   const handleSubmit = form.onSubmit((values) => {
     let config: Record<string, unknown>;
-    if (selected?.module_name === 'email') {
+    if (selected?.module_name === 'telegram') {
+      const chatId = values.telegram.chat_id.trim();
+      if (!chatId) {
+        form.setFieldError('telegram.chat_id', 'Chat ID is required');
+        return;
+      }
+      config = { chat_id: chatId };
+      const token = values.telegram.bot_token.trim();
+      if (token) config.bot_token = token;
+      if (values.telegram.parse_mode) config.parse_mode = values.telegram.parse_mode;
+      if (values.telegram.disable_notification) config.disable_notification = true;
+      if (values.telegram.message_thread_id !== null) {
+        config.message_thread_id = values.telegram.message_thread_id;
+      }
+    } else if (selected?.module_name === 'email') {
       config = {
         to: values.email.to,
         smtp_port: values.email.smtp_port,
@@ -135,7 +190,57 @@ export function ChannelEditModal({ opened, onClose, onSubmit, initial, isPending
             placeholder={integrationPlugins.length ? 'Pick a plugin' : 'No integration plugins installed'}
           />
 
-          {isEmail ? (
+          {isTelegram ? (
+            <>
+              <TextInput
+                label="Chat ID"
+                required
+                placeholder="123456789 or @public_channel"
+                description="Send /start to the bot from this chat to discover its numeric ID."
+                value={form.values.telegram.chat_id}
+                onChange={(e) => form.setFieldValue('telegram.chat_id', e.currentTarget.value)}
+                error={form.errors['telegram.chat_id']}
+              />
+              <PasswordInput
+                label="Bot token (optional)"
+                placeholder="leave blank to use the plugin-level bot token"
+                description="Overrides the plugin-level token for this channel only."
+                value={form.values.telegram.bot_token}
+                onChange={(e) => form.setFieldValue('telegram.bot_token', e.currentTarget.value)}
+              />
+              <Select
+                label="Parse mode"
+                description="Plain text is safest. Markdown/HTML let you format but break on special characters in rule/device names unless escaped."
+                data={[
+                  { value: '', label: 'Plain text' },
+                  { value: 'Markdown', label: 'Markdown (legacy)' },
+                  { value: 'MarkdownV2', label: 'MarkdownV2' },
+                  { value: 'HTML', label: 'HTML' },
+                ]}
+                value={form.values.telegram.parse_mode}
+                onChange={(v) => form.setFieldValue('telegram.parse_mode', coerceParseMode(v))}
+              />
+              <NumberInput
+                label="Message thread ID (optional)"
+                description="For forum/topic groups only — routes the message to a specific topic."
+                min={1}
+                value={form.values.telegram.message_thread_id ?? ''}
+                onChange={(v) =>
+                  form.setFieldValue(
+                    'telegram.message_thread_id',
+                    typeof v === 'number' ? v : null
+                  )
+                }
+              />
+              <Checkbox
+                label="Silent (no notification sound)"
+                checked={form.values.telegram.disable_notification}
+                onChange={(e) =>
+                  form.setFieldValue('telegram.disable_notification', e.currentTarget.checked)
+                }
+              />
+            </>
+          ) : isEmail ? (
             <>
               <TextInput
                 label="Recipient"
