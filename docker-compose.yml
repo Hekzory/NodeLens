@@ -53,9 +53,31 @@ services:
     deploy:
       resources:
         limits:
-          memory: 384m
+          memory: 320m
         reservations:
           memory: 64m
+    restart: unless-stopped
+
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    volumes:
+      - ./deploy/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_log:/mosquitto/log
+    ports:
+      - "1883:1883"
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_sub -h localhost -p 1883 -t '$$SYS/broker/uptime' -C 1 -W 3 -q 0 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          memory: 192m
+        reservations:
+          memory: 24m
     restart: unless-stopped
 
   ingestor:
@@ -81,9 +103,9 @@ services:
     deploy:
       resources:
         limits:
-          memory: 768m
+          memory: 640m
         reservations:
-          memory: 128m
+          memory: 96m
     restart: unless-stopped
 
   alerts:
@@ -111,9 +133,9 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512m
+          memory: 384m
         reservations:
-          memory: 64m
+          memory: 48m
     restart: unless-stopped
 
   plugins:
@@ -142,7 +164,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1536m
+          memory: 1280m
         reservations:
           memory: 128m
     restart: unless-stopped
@@ -172,9 +194,9 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1g
+          memory: 768m
         reservations:
-          memory: 128m
+          memory: 96m
     restart: unless-stopped
 
   frontend:
@@ -195,9 +217,9 @@ services:
     deploy:
       resources:
         limits:
-          memory: 256m
+          memory: 192m
         reservations:
-          memory: 32m
+          memory: 24m
     restart: unless-stopped
 
   seed:
@@ -219,3 +241,5 @@ services:
 
 volumes:
   pgdata:
+  mosquitto_data:
+  mosquitto_log:

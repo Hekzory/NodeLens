@@ -21,7 +21,7 @@ Important:
   - Plugins worker (with a built-in demo_sender device plugin and an `email` integration plugin)
   - Alert processor (consumes telemetry, evaluates rules, dispatches via integration plugins)
   - Frontend (React + nginx)
-- `docker-compose.yml` currently starts 7 services: `postgres`, `redis`, `api`, `ingestor`, `alerts`, `plugins`, `frontend`.
+- `docker-compose.yml` currently starts 8 services: `postgres`, `redis`, `mosquitto`, `ingestor`, `alerts`, `plugins`, `api`, `frontend`.
 - Metadata required for ingestion (`plugins`, `devices`, `sensors`) is registered at runtime by plugins themselves via the `registration_events` Redis stream. The ingestor consumes that stream and upserts rows into the DB. Registration is idempotent — plugins re-register on every restart.
 - Python target is **3.13**.
 - Python dependencies are managed with **uv** from `backend/pyproject.toml`.
@@ -112,13 +112,13 @@ Current implementation note:
 - The **currently implemented runtime subset** is:
   1. PostgreSQL + TimescaleDB
   2. Redis Streams
-  3. Web backend (FastAPI)
-  4. Ingestor
-  5. Alert processor
-  6. Plugins worker (with `email` integration plugin)
-  7. Frontend (React, served by nginx)
-- Frontend is implemented as an MVP (dashboard, devices, plugins, alerts pages).
-- MQTT broker is not yet an active runtime component in the current iteration.
+  3. MQTT broker (Eclipse Mosquitto)
+  4. Web backend (FastAPI)
+  5. Ingestor
+  6. Alert processor
+  7. Plugins worker (with `email` integration plugin)
+  8. Frontend (React, served by nginx)
+- MQTT broker (Eclipse Mosquitto 2.0) is deployed and reachable at `mosquitto:1883` on the compose network (anonymous, no TLS). No MQTT device plugin consumes from it yet — see plugin model section.
 
 ---
 
@@ -741,10 +741,11 @@ Current compose/runtime definitions:
 - `docker-compose.yml` currently runs:
   - `postgres`
   - `redis`
-  - `api`
+  - `mosquitto`
   - `ingestor`
   - `alerts`
   - `plugins`
+  - `api`
   - `frontend`
 
 Current relevant env vars:
@@ -784,8 +785,9 @@ Current useful commands:
 - `make redis-registration`
 - `make migrate` / `make migration MSG="..."` / `make migrate-down` (Alembic schema migrations)
 
-Future full 8-service compose layout:
-- 7 of the 8 target services run today (`postgres`, `redis`, `api`, `ingestor`, `alerts`, `plugins`, `frontend`). The missing one is the **MQTT broker** (Eclipse Mosquitto) — it's in the architecture but not yet wired into compose; no MQTT device plugin exists yet either.
+Current 8-service compose layout:
+- All 8 target services run today (`postgres`, `redis`, `mosquitto`, `ingestor`, `alerts`, `plugins`, `api`, `frontend`). The MQTT broker (Eclipse Mosquitto 2.0) is reachable on the compose network at `mosquitto:1883` (anonymous, no TLS) and persists to the `mosquitto_data` named volume. No MQTT device plugin exists yet, so the broker has no producers or consumers in the current iteration.
+- Total `deploy.resources.limits.memory` across the 8 services sums to **5824 MiB**, leaving ~320 MiB headroom under the diploma's 6 GiB runtime cap (NF-8: «до 50 устройств, до 5 активных плагинов»).
 
 ---
 
