@@ -377,11 +377,11 @@ React + TypeScript application:
 - nginx-based runtime image
 
 ### `/scripts`
-Utility scripts for setup/seed/health.
+Utility scripts for setup/health/load-testing.
 
 Currently implemented:
 - `init_db.py`
-- `seed_db.py`
+- `loadtest.py`
 
 ### `/docs`
 Architecture/deployment/plugin docs
@@ -772,9 +772,10 @@ The values below are seed defaults — when a row is present in the `system_sett
 - `FRONTEND_POLLING_INTERVAL_SECONDS` (dashboard poll cadence; default 10; applies live — frontend updates `QueryClient` on save)
 
 Current useful commands:
-- `make up`
+- `make up` / `make up-dev` (operator pulls registry images; dev rebuilds from local source)
+- `make pull` (refresh registry images without restarting)
+- `make build` / `make build-dev`
 - `make down` / `make down-v`
-- `make seed`
 - `make logs` / `make logs-ingestor` / `make logs-plugins` / `make logs-api` / `make logs-alerts`
 - `make restart` / `make restart-api` / `make restart-alerts`
 - `make ps`

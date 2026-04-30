@@ -44,7 +44,7 @@ class _StubClient:
         self.post = AsyncMock(return_value=_StubResponse())
         self.get = AsyncMock(return_value=_StubResponse(json_data={"ok": True, "result": []}))
 
-    async def __aenter__(self) -> "_StubClient":
+    async def __aenter__(self) -> _StubClient:
         return self
 
     async def __aexit__(self, *exc: Any) -> None:
@@ -321,7 +321,8 @@ class TestStartHandler:
     async def test_start_with_bot_suffix_recognised(self, plugin, stub_httpx, monkeypatch):
         monkeypatch.setattr(plugin, "_configured_chat_ids", AsyncMock(return_value={"12345"}))
         client = stub_httpx._client
-        await plugin._handle_update(client, "https://api.telegram.org", "tkn", _make_update(12345, "/start@MyNodeLensBot"))
+        await plugin._handle_update(client, "https://api.telegram.org", "tkn",
+                                    _make_update(12345, "/start@MyNodeLensBot"))
         client.post.assert_awaited_once()
 
     async def test_start_with_args_recognised(self, plugin, stub_httpx, monkeypatch):

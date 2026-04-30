@@ -11,14 +11,13 @@ Self-hosted IoT telemetry monitoring system with a dashboard UI, plugin-based de
 ## Quick start
 
 ```bash
-# Start the full stack
+# Operator path — pulls pre-built images from GHCR, only `plugins` builds locally.
+# This is the fast path: ingestor / api / alerts / frontend come straight from
+# ghcr.io/hekzory/nodelens-<svc>:latest.
 make up
 
 # Open the UI
 open http://localhost
-
-# Seed extra demo data (optional — demo_sender plugin generates data automatically)
-make seed
 
 # View logs
 make logs            # all services
@@ -27,10 +26,39 @@ make logs-alerts     # alert evaluator
 make logs-plugins    # plugin subprocesses
 make logs-api        # FastAPI
 
+# Refresh registry images without restarting
+make pull
+
 # Tear down
 make down            # keep data
 make down-v          # wipe postgres volume
 ```
+
+### Pinning to a specific commit
+
+`make up` follows `:latest`, which is mutable and tracks `master` HEAD. To pin
+the four registry-published services to a specific commit, set `NODELENS_TAG`
+in your `.env`:
+
+```bash
+echo "NODELENS_TAG=sha-abc1234" >> .env
+make up
+```
+
+Available tags per image: `latest`, `master`, and `sha-<7chars>` for every
+commit on `master`. See [GitHub Packages](https://github.com/Hekzory?tab=packages).
+
+### Contributor path
+
+Edit code, then rebuild every service from local source:
+
+```bash
+make up-dev          # docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+make build-dev       # rebuild without restarting
+```
+
+`make up-dev` tags locally-built images as `nodelens-<svc>:dev` so they don't
+collide with the registry tags.
 
 ## Services
 
@@ -43,7 +71,6 @@ make down-v          # wipe postgres volume
 | plugins   | —    | Plugin supervisor — discovers plugins, runs each as a subprocess, restarts on crash |
 | postgres  | 5432 | TimescaleDB (PostgreSQL 17) |
 | redis     | 6379 | Event bus (Redis Streams) |
-| seed      | —    | One-shot demo data seeder (optional profile) |
 
 ## Frontend pages
 
@@ -126,7 +153,7 @@ plugins/          Drop-in device/integration plugins
   devices/demo_sender/
   integrations/email/
 deploy/           Per-service Dockerfiles, nginx, postgres init, redis config
-scripts/          Utility scripts (init_db, seed_demo, loadtest)
+scripts/          Utility scripts (init_db, loadtest)
 docs/             Architecture documentation
 ```
 

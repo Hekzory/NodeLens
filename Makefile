@@ -1,8 +1,18 @@
-.PHONY: up down down-v logs logs-ingestor logs-plugins logs-api logs-alerts ps restart restart-api restart-alerts seed api-docs curl-health test pytest lint lint-fix loadtest-up loadtest loadtest-down build migrate migration migrate-down
+.PHONY: up up-dev down down-v pull build build-dev \
+        logs logs-ingestor logs-plugins logs-api logs-alerts logs-frontend \
+        ps restart restart-api restart-alerts \
+        api-docs curl-health curl-health-db curl-plugins curl-devices \
+        test pytest lint lint-fix \
+        loadtest-up loadtest-up-dev loadtest loadtest-down \
+        migrate migration migrate-down \
+        redis-stream redis-registration \
+        query-telemetry query-devices query-sensors query-plugins
 
 # ── BuildKit / Compose settings ──────────────────────────────────
 export DOCKER_BUILDKIT       := 1
 export COMPOSE_DOCKER_CLI_BUILD := 1
+
+COMPOSE_DEV = docker compose -f docker-compose.yml -f docker-compose.dev.yml
 
 test:
 	uv run --project backend python scripts/test_report.py
@@ -16,11 +26,36 @@ lint:
 lint-fix:
 	cd backend && uv run ruff check --fix .
 
-build:
-	docker compose build --parallel
-
+# ── Default operator path ────────────────────────────────────────
+# Pull pre-built images from GHCR for ingestor/api/alerts/frontend, then
+# bring up the stack. The `--build` flag (without a service arg) only builds
+# services that have a `build:` directive in compose — after the flip, that's
+# only `plugins` (the one service that bakes in per-deployment plugin
+# requirements). Everything else uses the just-pulled image.
 up:
+	docker compose pull
 	docker compose up -d --build
+
+# Refresh registry images without restarting anything.
+pull:
+	docker compose pull
+
+# Backwards-compatible alias for `make build`. Pulls registry images and
+# rebuilds the locally-built `plugins` worker. Use `make build-dev` for the
+# old "build everything from source" behavior.
+build: pull
+	docker compose build plugins
+
+# ── Contributor / dev path ───────────────────────────────────────
+# Rebuild every service from local source. Use this when you have edits in
+# backend/, frontend/, or deploy/ that need to land in the running stack.
+up-dev:
+	$(COMPOSE_DEV) up -d --build
+
+build-dev:
+	$(COMPOSE_DEV) build --parallel
+
+# ── Lifecycle ────────────────────────────────────────────────────
 
 down:
 	docker compose down
@@ -57,9 +92,6 @@ restart-api:
 
 restart-alerts:
 	docker compose restart alerts
-
-seed:
-	docker compose run --rm seed
 
 api-docs:
 	@echo "Swagger UI: http://localhost:8000/docs"
@@ -102,6 +134,11 @@ query-plugins:
 # The ingestor auto-runs `alembic upgrade head` on startup, so a plain
 # `make restart` (or `make up` after a pull) is usually enough. The
 # targets below are for the cases where you want explicit control.
+#
+# NOTE: these targets exec inside the running ingestor. After `make up`
+# that's the *published* image — your locally-added migration files won't
+# exist inside it. To test new migrations against your local code, run
+# `make up-dev` first so the ingestor was built from your tree.
 
 # Apply pending migrations now, without restarting workers.
 # Use after: pulling code that adds a new versions/*.py and you don't
@@ -138,9 +175,17 @@ redis-registration:
 # ── Load testing (isolated stack, ephemeral volumes) ───────────────
 
 LOADTEST_COMPOSE = docker compose -f docker-compose.yml -f docker-compose.loadtest.yml
+LOADTEST_COMPOSE_DEV = $(LOADTEST_COMPOSE) -f docker-compose.dev.yml
 
+# Loadtest against the *published* ingestor image (matches what operators run).
 loadtest-up:
-	$(LOADTEST_COMPOSE) up -d --build postgres redis ingestor
+	$(LOADTEST_COMPOSE) pull ingestor
+	$(LOADTEST_COMPOSE) up -d postgres redis ingestor
+
+# Opt-in: loadtest against the *locally-built* ingestor (use when you have
+# unmerged ingestor changes you want to benchmark).
+loadtest-up-dev:
+	$(LOADTEST_COMPOSE_DEV) up -d --build postgres redis ingestor
 
 loadtest:
 	uv run --project backend python scripts/loadtest.py $(ARGS)

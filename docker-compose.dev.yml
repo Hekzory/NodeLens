@@ -1,0 +1,35 @@
+# Dev overlay — rebuild service images from local source instead of pulling
+# pre-built ones from GHCR. Use via:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+#
+# or simply `make up-dev`. The `image:` tags here are local-only (no registry
+# prefix) so compose treats them as locally-built tags and won't try to pull
+# them over the just-built layers.
+#
+# `plugins` is omitted — it already builds in the base file.
+
+services:
+  ingestor:
+    image: nodelens-ingestor:dev
+    build:
+      context: .
+      dockerfile: deploy/ingestor.Dockerfile
+
+  alerts:
+    image: nodelens-alerts:dev
+    build:
+      context: .
+      dockerfile: deploy/alerts.Dockerfile
+
+  api:
+    image: nodelens-api:dev
+    build:
+      context: .
+      dockerfile: deploy/api.Dockerfile
+
+  frontend:
+    image: nodelens-frontend:dev
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
