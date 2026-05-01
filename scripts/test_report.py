@@ -48,6 +48,7 @@ def parse_junit(path: Path) -> dict:
     tree = ET.parse(path)
     root = tree.getroot()
     suite = root if root.tag == "testsuite" else root.find("testsuite")
+    suite = suite or {}
     return {
         "tests": int(suite.get("tests", 0)),
         "failures": int(suite.get("failures", 0)),

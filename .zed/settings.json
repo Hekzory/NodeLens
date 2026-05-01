@@ -1,0 +1,25 @@
+{
+  "lsp": {
+    "pyright": {
+      "settings": {
+        "python": {
+          "pythonPath": "/home/oleg/NodeLens/backend/.venv/bin/python",
+          "venvPath": "/home/oleg/NodeLens/backend",
+          "venv": ".venv",
+          "analysis": {
+            "extraPaths": ["/home/oleg/NodeLens/backend"],
+            "diagnosticMode": "workspace",
+            "useLibraryCodeForTypes": true
+          }
+        }
+      }
+    },
+    "ruff": {
+      "initialization_options": {
+        "settings": {
+          "interpreter": ["/home/oleg/NodeLens/backend/.venv/bin/python"]
+        }
+      }
+    }
+  }
+}
