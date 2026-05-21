@@ -27,6 +27,7 @@ dev = [
     "pytest-asyncio>=1.3.0,<2",
     "pytest-cov>=7.1.0,<8",
     "httpx>=0.28.1,<1",
+    "testcontainers[postgres,redis]>=4.8,<5",
     "ruff~=0.15.13",
     "mypy",
 ]
@@ -34,6 +35,14 @@ dev = [
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+markers = [
+    "integration: spins up real Postgres/Redis via testcontainers (auto-skips without Docker)",
+]
+filterwarnings = [
+    # testcontainers' RedisContainer still uses a decorator its own maintainers
+    # have deprecated — nothing we can change here until they ship the fix.
+    "ignore:The @wait_container_is_ready decorator is deprecated:DeprecationWarning",
+]
 
 [tool.coverage.run]
 source = ["nodelens"]
@@ -46,9 +55,11 @@ omit = [
     "nodelens/__main__.py",
     "nodelens/*/__main__.py",
     "nodelens/*/*/__main__.py",
-    # FastAPI app factory + ASGI middleware — wired up at process start.
+    # FastAPI app factory — declarative router/middleware wiring done at process
+    # start; exercised (not credited) by the integration suite via the real app.
+    # (api/middleware.py is NOT omitted: it holds real ETag/CSRF logic that the
+    # integration tests cover through the real app.)
     "nodelens/api/app.py",
-    "nodelens/api/middleware.py",
     # Worker main loops: Redis stream poll → call already-tested writer/evaluator/dispatcher.
     "nodelens/workers/ingestor/consumer.py",
     "nodelens/workers/alerts/engine.py",

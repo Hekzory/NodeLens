@@ -101,7 +101,7 @@ def print_report(junit: dict, cov: dict, exit_code: int):
 
     w = 58
     print(f"{BOLD}{'=' * w}")
-    print("  NodeLens  Unit Test Report")
+    print("  NodeLens  Test Report")
     print(f"{'=' * w}{RESET}")
 
     # Test results row

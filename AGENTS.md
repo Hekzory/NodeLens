@@ -358,7 +358,9 @@ Currently implemented parts:
 - `nodelens/workers/alerts` → alert engine (consumer + evaluator + dispatcher) plus a periodic `no_data` scanner co-routine; supports `instant`, `aggregated`, and `no_data` rule kinds with cooldown
 - `nodelens/workers/plugin_runner` → plugin supervisor, loader, single-plugin subprocess runner
 
-- `tests/` → unit tests (pytest + pytest-asyncio); covers event parsing, writer validation pipeline, registration coercion, plugin loader/discovery, alert evaluator + dispatcher, email plugin, and API route logic (alerts, channels, telemetry, dashboards)
+- `tests/` → pytest suite (pytest + pytest-asyncio), unit + integration in one `make test` run:
+  - unit (mocked DB/Redis): event parsing, writer validation pipeline, registration coercion, plugin loader/discovery, alert evaluator + dispatcher, email plugin, API route logic (alerts, channels, telemetry, dashboards)
+  - integration (`@pytest.mark.integration`): throwaway Postgres/Redis/TimescaleDB via `testcontainers` — real API→DB round-trips, ingestor writer, ETag/Origin middleware, Redis stream round-trip, and the Alembic migration chain; auto-skipped (not failed) when Docker is absent
 - `alembic/` → schema migrations (async-aware env.py reading `DATABASE_URL` from `nodelens.config.settings`). The ingestor runs `alembic upgrade head` on startup via `init_models`. Pre-Alembic deployments are auto-stamped to baseline before upgrade, so existing DBs upgrade cleanly without recreating tables.
 
 ### `/plugins`

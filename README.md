@@ -107,7 +107,8 @@ Plugin authors only need to subclass `DevicePlugin` (implement `on_message`) or 
 ## Development
 
 ```bash
-# Backend tests (pytest)
+# Backend tests — unit + integration in one pytest run. Integration tests spin up
+# throwaway Postgres/Redis containers via testcontainers (auto-skipped without Docker).
 make test
 make pytest       # verbose
 
@@ -147,7 +148,7 @@ backend/          Python backend (FastAPI + ingestor + alerts + plugin runner)
       ingestor/   Telemetry + registration consumers
       alerts/     Rule evaluator + dispatcher
       plugin_runner/  Subprocess supervisor
-  tests/          Pytest suite
+  tests/          Pytest suite (unit + integration via testcontainers)
 frontend/         React + TypeScript SPA (Vite + Mantine)
 plugins/          Drop-in device/integration plugins
   devices/demo_sender/
